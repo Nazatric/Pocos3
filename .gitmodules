@@ -1,0 +1,13 @@
+# Upstream RPCS3 core. This submodule points at RPCS3's main branch.
+# PocoS3 applies additive patches (see patches/) on top to expose the Android
+# entry points. Patches are versioned against the pinned commit below so a
+# rebase is predictable when upstream advances.
+#
+# Initialize with:  git submodule update --init --recursive
+# This will also pull LLVM, FFmpeg, asmjit, glslang, etc. — total fetch is
+# ~5 GB and the first build is 30–90 minutes on an 8-core machine.
+[submodule "third_party/rpcs3"]
+	path = third_party/rpcs3
+	url = https://github.com/RPCS3/rpcs3.git
+	branch = main
+	ignore = dirty

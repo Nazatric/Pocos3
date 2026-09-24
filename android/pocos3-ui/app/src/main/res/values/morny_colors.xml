@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Mornye colour palette, dark mode (default).
+    These XML values mirror ui/theme/MornyColors.kt so non-Compose surfaces
+    (splash, system bars, vector drawables) consume the same palette.
+-->
+<resources>
+    <color name="morny_bg_deep">#0A0B0F</color>
+    <color name="morny_surface_0">#111319</color>
+    <color name="morny_surface_1">#161A22</color>
+    <color name="morny_surface_2">#1C2230</color>
+    <color name="morny_surface_glass">#161A22AA</color>
+    <color name="morny_border_subtle">#2A2F3D</color>
+    <color name="morny_border_active">#3A4258</color>
+    <color name="morny_text_primary">#F4F1EA</color>
+    <color name="morny_text_secondary">#A6AAB8</color>
+    <color name="morny_text_tertiary">#6B7080</color>
+    <color name="morny_accent_amber">#F5B14C</color>
+    <color name="morny_accent_amber_dim">#A87833</color>
+    <color name="morny_accent_teal">#3CC4D0</color>
+    <color name="morny_accent_teal_dim">#1F6F78</color>
+    <color name="morny_signal_success">#5CC974</color>
+    <color name="morny_signal_warning">#E0A040</color>
+    <color name="morny_signal_danger">#E0556A</color>
+</resources>

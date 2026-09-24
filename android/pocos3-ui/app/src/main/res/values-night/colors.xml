@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Light variant - same Mornye palette, inverted light surface. -->
+<resources>
+    <color name="morny_bg_deep">#F6F4ED</color>
+    <color name="morny_surface_0">#FAF8F2</color>
+    <color name="morny_surface_1">#FFFFFF</color>
+    <color name="morny_surface_glass">#FFFFFFCC</color>
+    <color name="morny_border_subtle">#D4D0C5</color>
+    <color name="morny_text_primary">#15171C</color>
+    <color name="morny_text_secondary">#5C606A</color>
+    <color name="morny_accent_amber">#C6852D</color>
+    <color name="morny_accent_teal">#1F8A95</color>
+</resources>

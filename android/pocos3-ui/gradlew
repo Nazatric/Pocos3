@@ -1,0 +1,23 @@
+#!/bin/sh
+# Gradle wrapper script. The actual gradle-wrapper.jar must be generated
+# by `gradle wrapper` on a machine with Gradle installed. PocoS3 does not
+# commit the .jar in this scaffold; the first contributor with a local
+# Gradle install runs:
+#
+#     cd android/pocos3-ui
+#     gradle wrapper --gradle-version 8.10.2
+#
+# which produces gradle/wrapper/gradle-wrapper.jar + this file (which
+# the wrapper task regenerates to a real script, not this stub).
+#
+# From there, `./gradlew` works on any machine without a pre-installed
+# Gradle.
+
+if [ ! -f "$(dirname "$0")/gradle/wrapper/gradle-wrapper.jar" ]; then
+    echo "PocoS3: gradle-wrapper.jar is missing." >&2
+    echo "Run, on a machine with Gradle installed:" >&2
+    echo "    cd android/pocos3-ui && gradle wrapper --gradle-version 8.10.2" >&2
+    exit 1
+fi
+
+exec java -jar "$(dirname "$0")/gradle/wrapper/gradle-wrapper.jar" "$@"

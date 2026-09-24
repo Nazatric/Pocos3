@@ -1,0 +1,31 @@
+# Auto-detect line endings; preserve LF for everything CMake/C++ touches
+* text=auto eol=lf
+
+# Binary file types - don't try to diff them in CRLF/LF mode
+*.png binary
+*.jpg binary
+*.webp binary
+*.ico binary
+*.icns binary
+*.gif binary
+*.pdf binary
+*.zip binary
+*.gz binary
+*.so binary
+*.a binary
+*.dex binary
+*.apk binary
+*.aab binary
+*.profraw binary
+*.profdata binary
+
+# Linguist language hints for the GitHub UI
+*.kt    linguist-language=Kotlin
+*.kts   linguist-language=Kotlin
+*.cpp   linguist-language=C++
+*.cc    linguist-language=C++
+*.h     linguist-language=C++
+*.hpp   linguist-language=C++
+*.cmake linguist-language=CMake
+*.yml   linguist-language=YAML
+*.gradle linguist-language=Gradle

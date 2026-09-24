@@ -1,0 +1,6 @@
+*       @pocos3/maintainers
+/android/   @pocos3/android-team
+/third_party/rpcs3/   @pocos3/upstream-liaison
+/patches/   @pocos3/upstream-liaison
+/docs/   @pocos3/docs
+/.github/   @pocos3/ci

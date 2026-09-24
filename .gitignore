@@ -1,0 +1,52 @@
+# Build outputs
+/build/
+/build-android/
+/build-*/
+*.o
+*.so
+*.a
+*.apk
+*.aab
+*.dex
+*.class
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.cxx/
+*.swp
+.DS_Store
+
+# Android Studio / Gradle
+.gradle/
+local.properties
+android/pocos3-ui/app/src/main/jniLibs/arm64-v8a/*.so
+android/pocos3-ui/app/build/
+android/pocos3-ui/.gradle/
+android/pocos3-ui/local.properties
+android/pocos3-ui/app/.cxx/
+android/pocos3-ui/app/build/
+
+# Submodule working dirs (must be initialized, not committed)
+/third_party/rpcs3/
+/3rdparty/librashader/
+/android/pocos3-ui/app/src/main/cpp/libadrenotools/
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+compile_commands.json
+
+# PGO / profiling outputs
+*.profraw
+*.profdata
+
+# Crash dumps
+*.dmp
+tombstone_*
+
+# Logs
+*.log
+pocos3.log

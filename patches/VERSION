@@ -1,0 +1,9 @@
+# Records the upstream RPCS3 commit SHA these patches were last rebased against.
+# When you bump third_party/rpcs3 to a new SHA and re-run patches/apply.sh
+# successfully, update this file to the new SHA.
+#
+# Format: <full-sha> <short-sha> <commit-subject-80-char>
+# Example: a1b2c3d4e5f6... a1b2c3d4e5f6 "rpcs3: PPU: fix ..."
+#
+# Until real patches are generated (see README.md), this stays at "stub".
+stub
