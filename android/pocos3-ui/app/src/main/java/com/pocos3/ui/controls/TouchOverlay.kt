@@ -4,8 +4,6 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -16,7 +14,6 @@ import androidx.compose.ui.unit.dp
 import com.pocos3.runtime.PocoS3Core
 import com.pocos3.ui.theme.MornyColors
 import com.pocos3.ui.theme.MornyShapes
-import kotlin.math.PI
 import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.hypot
@@ -29,54 +26,13 @@ import kotlin.math.sin
 // circle / triangle), shoulders (L1/R1), triggers (L2/R2), START, SELECT,
 // PS button. All transparent, movable, scalable, multi-touch.
 //
-// Input is forwarded to the core via PocoS3Core.nativeOverlayPadData with
-// PS3 pad constants (CELL_PAD_CTRL_*). The encoding matches ARMSX3's
-// overlayPadData bit layout so the core side does not need a separate
-// path.
+// PS3 pad constants (CELL_PAD_CTRL_*) mirror upstream RPCS3's
+// rpcs3/Emu/Cell/Modules/cellPad.h bit layout so the core side does not
+// need a separate path.
 // =============================================================================
 
-@Composable
-fun TouchOverlay(modifier: Modifier = Modifier) {
-    Box(modifier = modifier) {
-        Row(
-            modifier = Modifier.fillMaxSize(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            // Left cluster: D-pad + left stick.
-            Column(
-                modifier = Modifier.padding(MornyShapes.spacingXxl),
-                verticalArrangement = Arrangement.spacedBy(MornyShapes.spacingL),
-            ) {
-                LeftAnalogStick()
-                DPad()
-            }
-            // Right cluster: face buttons + right stick.
-            Column(
-                modifier = Modifier.padding(MornyShapes.spacingXxl),
-                verticalArrangement = Arrangement.spacedBy(MornyShapes.spacingL),
-                horizontalAlignment = Alignment.End,
-            ) {
-                FaceButtons()
-                RightAnalogStick()
-            }
-        }
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(MornyShapes.spacingL),
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            ShoulderButton(label = "L1")
-            ShoulderButton(label = "L2", isTrigger = true)
-            Spacer(Modifier.weight(1f))
-            ShoulderButton(label = "R2", isTrigger = true)
-            ShoulderButton(label = "R1")
-        }
-    }
-}
-
-// PS3 pad constants. Mirror upstream RPCS3's CellPad.h bit layout.
 private object Pad {
-    // digital1 (CELL_PAD_BTN_OFFSET_DIGITAL1)
+    // digital1 (CELL_PAD_BTN_OFFSET_DIGITAL1) - byte 2 of pad data
     const val CTRL_LEFT   = 0x80
     const val CTRL_DOWN   = 0x40
     const val CTRL_RIGHT  = 0x20
@@ -85,7 +41,7 @@ private object Pad {
     const val CTRL_R3     = 0x04
     const val CTRL_L3     = 0x02
     const val CTRL_SELECT = 0x01
-    // digital2 (CELL_PAD_BTN_OFFSET_DIGITAL2)
+    // digital2 (CELL_PAD_BTN_OFFSET_DIGITAL2) - byte 3 of pad data
     const val CTRL_SQUARE   = 0x80
     const val CTRL_CROSS    = 0x40
     const val CTRL_CIRCLE   = 0x20
@@ -97,81 +53,126 @@ private object Pad {
 }
 
 @Composable
-private fun DPad() {
+fun TouchOverlay(modifier: Modifier = Modifier) {
+    // Per-frame state for the overlay's digital bytes. Pad state is sent
+    // to the core via nativeOverlayPadData whenever any of these change.
     var d1 by remember { mutableStateOf(0) }
-    val onToggle: (Int, Boolean) -> Unit = { mask, pressed ->
-        d1 = if (pressed) d1 or mask else d1 and mask.inv()
+    var d2 by remember { mutableStateOf(0) }
+    var lx by remember { mutableStateOf(0) }
+    var ly by remember { mutableStateOf(0) }
+    var rx by remember { mutableStateOf(0) }
+    var ry by remember { mutableStateOf(0) }
+
+    fun pushPad() {
         PocoS3Core.nativeOverlayPadData(
-            port = 0, digital1 = d1, digital2 = 0,
-            leftStickX = 0, leftStickY = 0, rightStickX = 0, rightStickY = 0
+            port = 0,
+            digital1 = d1,
+            digital2 = d2,
+            leftStickX = lx,
+            leftStickY = ly,
+            rightStickX = rx,
+            rightStickY = ry,
         )
     }
+
+    fun setBit(field: Int, mask: Int, pressed: Boolean) {
+        if (field == 1) {
+            d1 = if (pressed) d1 or mask else d1 and mask.inv()
+        } else {
+            d2 = if (pressed) d2 or mask else d2 and mask.inv()
+        }
+        pushPad()
+    }
+
+    Box(modifier = modifier) {
+        // Top row: shoulders + triggers + START/SELECT + PS.
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(MornyShapes.spacingL),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = androidx.compose.ui.Alignment.Top,
+        ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(MornyShapes.spacingXs)) {
+                TouchButton("L2", 24) { p -> setBit(2, Pad.CTRL_L2, p) }
+                TouchButton("L1", 24) { p -> setBit(2, Pad.CTRL_L1, p) }
+                TouchButton("SELECT", 18) { p -> setBit(1, Pad.CTRL_SELECT, p) }
+            }
+            TouchButton("PS", 22) { /* PS button is separate cell key; skip for now */ }
+            Row(horizontalArrangement = Arrangement.spacedBy(MornyShapes.spacingXs)) {
+                TouchButton("START", 18) { p -> setBit(1, Pad.CTRL_START, p) }
+                TouchButton("R1", 24) { p -> setBit(2, Pad.CTRL_R1, p) }
+                TouchButton("R2", 24) { p -> setBit(2, Pad.CTRL_R2, p) }
+            }
+        }
+
+        // Middle row: left stick + D-pad | face buttons + right stick.
+        Row(
+            modifier = Modifier.fillMaxSize(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+        ) {
+            Column(
+                modifier = Modifier.padding(MornyShapes.spacingXxl),
+                verticalArrangement = Arrangement.spacedBy(MornyShapes.spacingL),
+            ) {
+                AnalogStick(
+                    modifier = Modifier.size(96.dp),
+                    onStick = { x, y -> lx = x; ly = y; pushPad() },
+                )
+                DPad(
+                    onToggle = { mask, pressed -> setBit(1, mask, pressed) },
+                )
+            }
+            Column(
+                modifier = Modifier.padding(MornyShapes.spacingXxl),
+                verticalArrangement = Arrangement.spacedBy(MornyShapes.spacingL),
+                horizontalAlignment = androidx.compose.ui.Alignment.End,
+            ) {
+                FaceButtons(
+                    onToggle = { mask, pressed -> setBit(2, mask, pressed) },
+                )
+                AnalogStick(
+                    modifier = Modifier.size(96.dp),
+                    onStick = { x, y -> rx = x; ry = y; pushPad() },
+                )
+            }
+        }
+
+        // L3 / R3 on the analog sticks - toggled when the user double-taps
+        // the stick center. Skipped for brevity; real impl would be a
+        // LongPressGesture on the AnalogStick.
+    }
+}
+
+@Composable
+private fun DPad(onToggle: (Int, Boolean) -> Unit) {
     Box(modifier = Modifier.size(160.dp)) {
-        // Up
         TouchButton(modifier = Modifier.size(56.dp).offset(x = 52.dp),
+                    label = "▲",
                     onPressChange = { onToggle(Pad.CTRL_UP, it) })
-        // Down
         TouchButton(modifier = Modifier.size(56.dp).offset(x = 52.dp, y = 104.dp),
+                    label = "▼",
                     onPressChange = { onToggle(Pad.CTRL_DOWN, it) })
-        // Left
         TouchButton(modifier = Modifier.size(56.dp).offset(y = 52.dp),
+                    label = "◄",
                     onPressChange = { onToggle(Pad.CTRL_LEFT, it) })
-        // Right
         TouchButton(modifier = Modifier.size(56.dp).offset(x = 104.dp, y = 52.dp),
+                    label = "►",
                     onPressChange = { onToggle(Pad.CTRL_RIGHT, it) })
     }
 }
 
 @Composable
-private fun FaceButtons() {
-    var d2 by remember { mutableStateOf(0) }
-    val onToggle: (Int, Boolean) -> Unit = { mask, pressed ->
-        d2 = if (pressed) d2 or mask else d2 and mask.inv()
-        PocoS3Core.nativeOverlayPadData(
-            port = 0, digital1 = 0, digital2 = d2,
-            leftStickX = 0, leftStickY = 0, rightStickX = 0, rightStickY = 0
-        )
-    }
+private fun FaceButtons(onToggle: (Int, Boolean) -> Unit) {
     Box(modifier = Modifier.size(160.dp)) {
-        // Triangle
         TouchButton(modifier = Modifier.size(56.dp).offset(x = 52.dp),
-                    onPressChange = { onToggle(Pad.CTRL_TRIANGLE, it) })
-        // Cross
+                    label = "△", onPressChange = { onToggle(Pad.CTRL_TRIANGLE, it) })
         TouchButton(modifier = Modifier.size(56.dp).offset(x = 52.dp, y = 104.dp),
-                    onPressChange = { onToggle(Pad.CTRL_CROSS, it) })
-        // Square
+                    label = "✕", onPressChange = { onToggle(Pad.CTRL_CROSS, it) })
         TouchButton(modifier = Modifier.size(56.dp).offset(y = 52.dp),
-                    onPressChange = { onToggle(Pad.CTRL_SQUARE, it) })
-        // Circle
+                    label = "□", onPressChange = { onToggle(Pad.CTRL_SQUARE, it) })
         TouchButton(modifier = Modifier.size(56.dp).offset(x = 104.dp, y = 52.dp),
-                    onPressChange = { onToggle(Pad.CTRL_CIRCLE, it) })
+                    label = "○", onPressChange = { onToggle(Pad.CTRL_CIRCLE, it) })
     }
-}
-
-@Composable
-private fun LeftAnalogStick() {
-    AnalogStick(
-        modifier = Modifier.size(96.dp),
-        onStick = { x, y ->
-            PocoS3Core.nativeOverlayPadData(
-                port = 0, digital1 = 0, digital2 = 0,
-                leftStickX = x, leftStickY = y, rightStickX = 0, rightStickY = 0
-            )
-        }
-    )
-}
-
-@Composable
-private fun RightAnalogStick() {
-    AnalogStick(
-        modifier = Modifier.size(96.dp),
-        onStick = { x, y ->
-            PocoS3Core.nativeOverlayPadData(
-                port = 0, digital1 = 0, digital2 = 0,
-                leftStickX = 0, leftStickY = 0, rightStickX = x, rightStickY = y
-            )
-        }
-    )
 }
 
 @Composable
@@ -196,17 +197,17 @@ private fun AnalogStick(modifier: Modifier = Modifier, onStick: (Int, Int) -> Un
             )
         }
     ) {
-        // Well
+        // Well (outer ring).
         drawCircle(
             color = MornyColors.borderSubtle,
             radius = size.minDimension / 2f,
-            style = Stroke(width = 1.dp.toPx())
+            style = Stroke(width = 1.dp.toPx()),
         )
-        // Thumb
+        // Thumb (inner circle that follows the touch).
         drawCircle(
             color = MornyColors.bgSurfaceGlass,
             radius = size.minDimension / 5f,
-            center = if (pos == Offset.Zero) Offset(size.width / 2, size.height / 2) else pos
+            center = if (pos == Offset.Zero) Offset(size.width / 2, size.height / 2) else pos,
         )
     }
 }
@@ -214,13 +215,20 @@ private fun AnalogStick(modifier: Modifier = Modifier, onStick: (Int, Int) -> Un
 @Composable
 private fun TouchButton(
     modifier: Modifier = Modifier,
+    label: String = "",
     onPressChange: (Boolean) -> Unit,
 ) {
     var pressed by remember { mutableStateOf(false) }
     Canvas(
         modifier = modifier.pointerInput(Unit) {
             detectTapGestures(
-                onPress = { onPressChange(true); pressed = true; tryAwaitRelease(); pressed = false; onPressChange(false) }
+                onPress = {
+                    pressed = true
+                    onPressChange(true)
+                    tryAwaitRelease()
+                    pressed = false
+                    onPressChange(false)
+                }
             )
         }
     ) {
@@ -230,35 +238,15 @@ private fun TouchButton(
         drawCircle(color = fill, radius = r)
         drawCircle(color = Color.White, radius = r, style = Stroke(width = 2.dp.toPx()))
     }
-}
-
-@Composable
-private fun ShoulderButton(label: String, isTrigger: Boolean = false) {
-    var pressed by remember { mutableStateOf(false) }
-    Box(
-        modifier = Modifier
-            .size(width = 72.dp, height = if (isTrigger) 36.dp else 48.dp)
-            .pointerInput(Unit) {
-                detectTapGestures(
-                    onPress = {
-                        pressed = true
-                        // L1 / R1 / L2 / R2 mapping - simplified for the sketch
-                        tryAwaitRelease()
-                        pressed = false
-                    }
-                )
-            },
-    ) {
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val fill = if (pressed) MornyColors.accentTealDim.copy(alpha = 0.5f)
-                       else MornyColors.bgSurfaceGlass.copy(alpha = 0.6f)
-            drawRoundRect(color = fill, size = size)
-            drawRoundRect(color = Color.White, size = size, style = Stroke(width = 2.dp.toPx()))
-        }
-        Text(
+    if (label.isNotEmpty()) {
+        androidx.compose.material3.Text(
             text = label,
             color = MornyColors.textPrimary,
-            modifier = Modifier.padding(MornyShapes.spacingS),
+            style = androidx.compose.material3.MaterialTheme.typography.labelMedium,
+            modifier = Modifier.padding(4.dp),
         )
     }
 }
+
+private fun androidx.compose.ui.unit.IntSize.center() = Pair(width / 2f, height / 2f)
+private fun IntSize.center() = Pair(width / 2f, height / 2f)

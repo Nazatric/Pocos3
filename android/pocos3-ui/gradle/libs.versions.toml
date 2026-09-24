@@ -6,6 +6,7 @@ core-ktx = "1.15.0"
 lifecycle = "2.8.7"
 activity-compose = "1.10.0"
 navigation = "2.8.5"
+fragment-ktx = "1.8.5"
 junit = "4.13.2"
 androidx-junit = "1.2.1"
 espresso = "3.6.1"
@@ -15,6 +16,7 @@ oboe = "1.9.0"
 coil = "2.7.0"
 kotlinx-serialization = "1.7.3"
 kotlinx-coroutines = "1.9.0"
+datastore = "1.1.1"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "core-ktx" }
@@ -34,6 +36,8 @@ oboe = { group = "com.google.oboe", name = "oboe", version.ref = "oboe" }
 coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "kotlinx-coroutines" }
+androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
+androidx-fragment-ktx = { group = "androidx.fragment", name = "fragment-ktx", version.ref = "fragment-ktx" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "androidx-junit" }
 androidx-espresso = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espresso" }

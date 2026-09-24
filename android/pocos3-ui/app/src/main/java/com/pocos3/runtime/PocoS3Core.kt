@@ -1,17 +1,17 @@
 package com.pocos3.runtime
 
+import android.content.Context
+import android.view.Surface
+import androidx.annotation.Keep
+
 // =============================================================================
 // Kotlin-side bindings to libpocos3-glue.so.
 //
 // Every method declared here has a matching `extern "C"` JNI entry in
-// android/src/pocos3-android.cpp. The Kotlin side is intentionally thin:
-// it marshalls types and exposes them via a single object so the UI can
-// call into the emulator from anywhere.
+// android/pocos3-ui/app/src/main/cpp/native-lib.cpp. The Kotlin side is
+// intentionally thin: it marshals types and exposes them via a single
+// object so the UI can call into the emulator from anywhere.
 // =============================================================================
-
-import android.content.Context
-import android.view.Surface
-import androidx.annotation.Keep
 
 @Keep
 object PocoS3Core {
@@ -38,6 +38,7 @@ object PocoS3Core {
     external fun nativeSetCapabilities(json: String)
     external fun nativeSetSocInfo(socInfo: String)
     external fun nativeGetPerformanceSnapshot(): String
+    external fun nativeProbeVulkan(): String
     external fun nativeSetThermals(cpu: Float, gpu: Float, battery: Float, show: Boolean)
     external fun nativeProcessCompilationQueue(): Boolean
     external fun nativeStartMainThreadProcessor(): Boolean

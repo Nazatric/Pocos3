@@ -1,0 +1,15 @@
+# =============================================================================
+# libpocos3-core.so symbol export map.
+#
+# Hides every symbol except the `_pocos3_*` entry points the glue resolves
+# via dlsym(). Keeps the .so small and avoids symbol clashes at dlopen
+# time.
+# =============================================================================
+
+POCOS3_CORE_1.0 {
+    global:
+        _pocos3_*;
+        JNI_OnLoad;
+    local:
+        *;
+};

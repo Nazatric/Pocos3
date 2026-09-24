@@ -1,129 +1,100 @@
 # PocoS3 Patches against upstream RPCS3
 
-These patches are **strictly additive**: they only add `extern "C"` entry
-points that delegate to existing RPCS3 public APIs. They do not modify
-emulator accuracy, compatibility, or rendering behaviour. The intent is
-that a future RPCS3 update can be merged by simply re-applying these
-patches with a 3-way merge — no semantic conflicts.
+## Good news: no entry-point patches are needed
 
-## Files
+PocoS3's architecture is **cleaner** than the original spec: instead of
+patching upstream RPCS3 to add `extern "C" poco3_*` entry points, PocoS3
+puts the entry points in its OWN source file
+(`android/src/pocos3-core.cpp`) that gets compiled alongside the
+upstream `rpcs3_emu` target into `libpocos3-core.so`.
 
-| File                                          | Purpose |
-|-----------------------------------------------|---------|
-| `pocos3-android-entry-points.patch`          | Adds `extern "C"` functions (`pocos3_initialize`, `pocos3_boot`, `pocos3_pause`, `pocos3_resume`, `pocos3_kill`, `pocos3_getState`, `pocos3_surfaceEvent`, `pocos3_overlayPadData`, ...) to RPCS3's `rpcs3/main.cpp` / `rpcs3/Emu/System.cpp` / `rpcs3/Emu/System.h`. These functions are what `dlsym()` in `android/src/pocos3-android.cpp` looks for. |
-| `pocos3-android-cmake-target.patch`          | Adds a `pocos3-core` CMake target to `rpcs3/CMakeLists.txt` that builds the core into a `.so` named `libpocos3-core.so` (instead of the desktop executable). This target links against LLVM statically and produces a single self-contained library that the JNI glue `dlopen()`s. |
-| `pocos3-android-pgo.patch`                  | Adds a `POCOS3_PGO` CMake option that enables LLVM profile instrumentation. Used by `android/configure.sh --pgo-generate` / `--pgo-use`. |
-| `VERSION`                                    | Records the upstream RPCS3 commit SHA these patches were last rebased against. |
-| `apply.sh`                                   | Idempotent patch applier. Refuses to apply twice; safe to re-run. |
+So the only "patches" needed are the kind that touch upstream RPCS3
+behaviour — and PocoS3's policy is to **send those upstream** rather than
+carry them as deltas.
 
-## Why patches, not a fork
+## What this directory contains
 
-A fork would carry every future RPCS3 merge as a manual rebase. A patch
-series carries them as `git apply` operations against whatever SHA the
-submodule points at, which is the same model the Linux kernel uses for
-subsystem patch series.
+| File | Purpose |
+|------|---------|
+| `README.md` | This document. |
+| `VERSION` | Records the upstream RPCS3 commit SHA PocoS3 was last built against. Bump when you bump the submodule. |
+| `apply.sh` | A no-op stub that succeeds even without any `.patch` files, so `configure.sh` can call it unconditionally. |
 
-If a patch fails to apply, the fix is to update the patch — not to
-modify the submodule. Modifying the submodule makes future merges
-opaque.
+## What this directory DOES NOT contain
+
+- Patches that add `extern "C" poco3_*` entry points to upstream RPCS3.
+  These are **not needed** — the entry points live in
+  `android/src/pocos3-core.cpp` and are compiled into the .so by
+  `android/CMakeLists.txt`'s `pocos3-core` target.
+
+## Why this is better than the patch-based approach
+
+1. **No rebases.** When upstream RPCS3 advances, you just bump the
+   submodule; PocoS3's `android/src/pocos3-core.cpp` calls the same
+   public API (`Emulator::Init`, `Emulator::Boot`, `Emulator::Pause`,
+   etc.) that the desktop frontend uses, so it's stable across upstream
+   updates.
+2. **No license complications.** PocoS3's entry points are clearly
+   PocoS3's source; they don't modify a GPL'd file.
+3. **Easier code review.** The entry points are all in one file, in
+   one tree, under PocoS3's namespace.
+4. **Smaller diff.** The user can rebase PocoS3 by bumping one
+   submodule; the patches directory stays empty.
+
+## What KIND of patches might end up here in the future
+
+If a future PocoS3 contributor writes a change that:
+
+1. **Must touch upstream RPCS3 source**, AND
+2. **Cannot be submitted upstream** (e.g. Android-specific logging,
+   Android-specific path handling, or a deliberate Android-only behaviour
+   fork that the upstream maintainers decline to merge),
+
+then that patch lives here, with a clear `## Rationale` header explaining
+why it cannot go upstream.
 
 ## apply.sh
 
-`apply.sh` takes the path to the RPCS3 submodule root and applies every
-`*.patch` file in this directory in alphabetical order. It is idempotent:
-if the patches have already been applied (detected by `git apply --check`),
-it prints a message and exits 0.
+`apply.sh` is now a no-op stub. It exists so the GitHub Actions workflow
+and `android/configure.sh` can call it unconditionally without breaking
+when there's nothing to apply.
 
 ```bash
 ./patches/apply.sh third_party/rpcs3
+# Exits 0 always (no patches to apply in this scaffold).
 ```
 
-If a patch fails to apply cleanly, `apply.sh` exits non-zero and prints
-the failing patch. To resolve:
+## Building the native core
 
-1. `cd third_party/rpcs3 && git checkout .` (reset any partial application)
-2. Manually rebase the failing patch onto the new upstream
-3. Commit the rebased patch in this directory
-4. Re-run `./patches/apply.sh third_party/rpcs3`
-5. Update `VERSION` to the new upstream SHA
+The actual build command for the native core is:
 
-## Required extern "C" symbols
+```bash
+./android/configure.sh --release
+```
 
-The JNI glue in `android/src/pocos3-android.cpp` looks for the following
-symbols in `libpocos3-core.so`. If a symbol is missing, the glue treats it
-as optional and silently skips it (except for the **required** set, which
-causes `dlopen` resolution to fail).
+Which wraps:
 
-### Required
+```bash
+cmake -S . -B build-android-release-a13 -G Ninja \
+    -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake \
+    -DANDROID_ABI=arm64-v8a \
+    -DANDROID_PLATFORM=android-33 \
+    -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+    ...
+cmake --build build-android-release-a13 --target pocos3-core -j$(nproc)
+```
 
-- `pocos3_initialize`
-- `pocos3_shutdown`
-- `pocos3_boot`
-- `pocos3_kill`
-- `pocos3_pause`
-- `pocos3_resume`
-- `pocos3_getState`
-- `pocos3_surfaceEvent`
-- `pocos3_overlayPadData`
-
-### Optional
-
-- `pocos3_surfaceSizeChanged`
-- `pocos3_overlayPadPressure`
-- `pocos3_keyboardKey`
-- `pocos3_setPadSensor`
-- `pocos3_getPadRumble`
-- `pocos3_setPadDeviceClasses`
-- `pocos3_usbDeviceEvent`
-- `pocos3_installFw`
-- `pocos3_isInstallableFile`
-- `pocos3_getDirInstallPath`
-- `pocos3_probePkgInfo`
-- `pocos3_install`
-- `pocos3_getFramePeriodNs`
-- `pocos3_getFrameWorkNs`
-- `pocos3_getRsxThreadTid`
-- `pocos3_getTitleId`
-- `pocos3_getCurrentTrophyName`
-- `pocos3_setThermals`
-- `pocos3_setRenderPosition`
-- `pocos3_setCapabilities`
-- `pocos3_setProfile`
-- `pocos3_setSocInfo`
-- `pocos3_processCompilationQueue`
-- `pocos3_startMainThreadProcessor`
-- `pocos3_collectGameInfo`
-- `pocos3_isRestartPending`
-- `pocos3_openHomeMenu`
-- `pocos3_captureFrame`
-- `pocos3_getPerformanceSnapshot`
-
-The signatures these symbols must match are declared in
-`android/src/pocos3-android.h` (`struct PocoS3Api`).
-
-## Status as of this commit
-
-The patches in this directory are written as a **specification**, not as
-finalised source. To actually build PocoS3 you (or someone) must:
-
-1. Read `pocos3-android-entry-points.patch.template`.
-2. For each function in the required / optional list above, write the
-   `extern "C"` wrapper in `rpcs3/rpcs3/main.cpp` or `rpcs3/Emu/System.cpp`
-   that delegates to the existing RPCS3 public API
-   (`Emu::Init`, `Emu::Boot`, `Emu::Pause`, `Emu::Resume`, `Emu::Kill`,
-   `Emu::GetStatus()`, etc.).
-3. Generate the actual `.patch` files via `git diff` against the
-   modified submodule.
-4. Update `VERSION` with the new SHA.
-
-The template below (and the apply script) verify the patches apply
-correctly once they exist; they do not generate the implementation for
-you. Writing these wrappers is straightforward but tedious — it's
-roughly the volume of `android/src/rpcsx-android.cpp`'s surface area
-against `rpcs3/rpcs3/main.cpp` minus the PGO plumbing.
-
-If you have a working ARMSX3 checkout, the equivalent wrappers live in
-its `rpcs3/rpcs3/` tree (look for `extern "C"` symbols with the `rpcsx_`
-prefix). Porting them to `pocos3_` is mechanical, but **do not copy
-ARMSX3 source verbatim** — read it, understand the delegation, write
-your own.
+The CMake build:
+1. Pulls in upstream RPCS3 via `add_subdirectory(third_party/rpcs3)`,
+   which creates the `rpcs3_emu` object library.
+2. PocoS3's `android/CMakeLists.txt` creates the `pocos3-core` SHARED
+   library target, which compiles:
+   - `android/src/pocos3-core.cpp` (the `_pocos3_*` entry points)
+   - `android/src/pocos3_saf.cpp` (Storage Access Framework bridge)
+   - `android/src/virtual_pad_handler.cpp` (touch controls for pad_thread)
+   - `android/src/virtual_keyboard_handler.cpp` (cellKb keyboard)
+   - `third_party/rpcs3/rpcs3/Input/*.cpp` (input handler subset)
+   - `third_party/rpcs3/rpcs3/rpcs3_version.cpp` (version helpers)
+3. Links everything against `rpcs3_emu` + LLVM + Vulkan + etc.
+4. Outputs `libpocos3-core.so` with a version script that hides all
+   symbols except `_pocos3_*`.
