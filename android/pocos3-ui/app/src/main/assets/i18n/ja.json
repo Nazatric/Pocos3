@@ -1,0 +1,23 @@
+{
+  "app_name": "PocoS3",
+  "onboarding_welcome_title": "PocoS3へようこそ",
+  "onboarding_welcome_subtitle": "ネイティブARM64 PlayStation 3エミュレータ",
+  "onboarding_firmware_title": "PS3ファームウェア",
+  "onboarding_firmware_desc": "PocoS3はPS3ファームウェアを必要とします。PS3から合法的に取得したものを使用してください。",
+  "onboarding_firmware_pick": "PS3UPDAT.PUPを選択",
+  "onboarding_games_title": "ゲームディレクトリ",
+  "onboarding_games_desc": "PS3ゲームがあるフォルダを選択してください。",
+  "onboarding_games_pick": "ゲームフォルダを選択",
+  "onboarding_controller_title": "コントローラー",
+  "onboarding_controller_desc": "Bluetoothコントローラーをペアリングするか、画面上のタッチオーバーレイを使用してください。",
+  "onboarding_finish": "プレイ開始",
+  "home_recent": "最近のゲーム",
+  "home_no_games": "ゲームが見つかりません。ディレクトリを選択してください。",
+  "settings_simple": "シンプル",
+  "settings_advanced": "詳細",
+  "settings_developer": "開発者",
+  "system_info": "システム情報",
+  "emulation_pause": "一時停止",
+  "emulation_resume": "再開",
+  "emulation_exit": "終了"
+}

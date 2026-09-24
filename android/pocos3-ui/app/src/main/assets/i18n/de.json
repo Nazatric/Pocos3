@@ -1,0 +1,23 @@
+{
+  "app_name": "PocoS3",
+  "onboarding_welcome_title": "Willkommen bei PocoS3",
+  "onboarding_welcome_subtitle": "Ein nativer ARM64 PlayStation-3-Emulator.",
+  "onboarding_firmware_title": "PS3-Firmware",
+  "onboarding_firmware_desc": "PocoS3 benötigt PS3-Systemfirmware zum Starten von Spielen. Bitte installiere die Firmware, die du legal von deiner PS3 bezogen hast.",
+  "onboarding_firmware_pick": "PS3UPDAT.PUP auswählen",
+  "onboarding_games_title": "Spielverzeichnis",
+  "onboarding_games_desc": "Wähle einen Ordner, in dem deine PS3-Spiele liegen.",
+  "onboarding_games_pick": "Spielordner wählen",
+  "onboarding_controller_title": "Controller",
+  "onboarding_controller_desc": "Verbinde einen Bluetooth-Controller oder nutze das Touch-Overlay.",
+  "onboarding_finish": "Spielen starten",
+  "home_recent": "Zuletzt",
+  "home_no_games": "Keine Spiele gefunden. Wähle ein Verzeichnis zum Scannen.",
+  "settings_simple": "Einfach",
+  "settings_advanced": "Erweitert",
+  "settings_developer": "Entwickler",
+  "system_info": "Systeminformationen",
+  "emulation_pause": "Pause",
+  "emulation_resume": "Fortsetzen",
+  "emulation_exit": "Beenden"
+}

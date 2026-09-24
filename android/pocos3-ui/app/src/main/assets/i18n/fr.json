@@ -1,0 +1,23 @@
+{
+  "app_name": "PocoS3",
+  "onboarding_welcome_title": "Bienvenue dans PocoS3",
+  "onboarding_welcome_subtitle": "Un émulateur PlayStation 3 natif ARM64.",
+  "onboarding_firmware_title": "Firmware PS3",
+  "onboarding_firmware_desc": "PocoS3 nécessite le firmware système PS3 pour démarrer les jeux. Installez le firmware obtenu légalement depuis votre PS3.",
+  "onboarding_firmware_pick": "Sélectionner PS3UPDAT.PUP",
+  "onboarding_games_title": "Répertoire de jeux",
+  "onboarding_games_desc": "Choisissez un dossier contenant vos jeux PS3.",
+  "onboarding_games_pick": "Choisir un dossier",
+  "onboarding_controller_title": "Manette",
+  "onboarding_controller_desc": "Associez une manette Bluetooth ou utilisez les contrôles tactiles.",
+  "onboarding_finish": "Commencer à jouer",
+  "home_recent": "Récents",
+  "home_no_games": "Aucun jeu trouvé. Sélectionnez un répertoire.",
+  "settings_simple": "Simple",
+  "settings_advanced": "Avancé",
+  "settings_developer": "Développeur",
+  "system_info": "Informations système",
+  "emulation_pause": "Pause",
+  "emulation_resume": "Reprendre",
+  "emulation_exit": "Quitter"
+}

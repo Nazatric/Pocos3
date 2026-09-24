@@ -4,45 +4,35 @@ PocoS3 Build Guide
 Build matrix
 ------------
 
-PocoS3 is built and tested against the following versions. Older combinations
-are not supported and will not be debugged.
+| Component        | Minimum       | Recommended      |
+|------------------|---------------|------------------|
+| Android NDK       | r27           | r27c             |
+| CMake              | 3.30          | 3.31             |
+| JDK                | 17            | 21 LTS           |
+| AGP                | 8.7           | 8.9              |
+| Kotlin             | 2.0           | 2.1              |
+| Android SDK        | 35            | 35               |
+| minSdk             | 33            | 33               |
+| targetSdk          | 35            | 35               |
 
-| Component        | Minimum       | Recommended      | Notes |
-|------------------|---------------|------------------|-------|
-| Android NDK       | r27           | r27c             | r28 works; r26 lacks C++23 features the core needs |
-| CMake              | 3.30          | 3.31             | Needed for `LINKER_LANGUAGE` on object libraries |
-| JDK                | 17            | 21 LTS           | Android Studio's bundled JBR is fine |
-| Android Gradle Plugin | 8.7       | 8.9              | Compose compiler is bundled with the Kotlin Gradle plugin from Kotlin 2.0+ |
-| Kotlin             | 2.0           | 2.1              | Compose compiler plugin is used (no `kotlin-compiler-extensions` repo needed) |
-| Android SDK        | API 35 (SDK 35) | API 35        | `compileSdk = 35` |
-| minSdk             | 33            | 33               | Below 33 lacks `ANativeWindow_setFrameRate` |
-| targetSdk          | 35            | 35               | Required for Android 15 foreground-service rules |
-
-Native ABI: **arm64-v8a** only. PocoS3 does not build for ARMv7, x86, or x86_64.
-
-Hardware target: ARMv8.2-A or later with NEON, FP16, and dot-product. The
-Dimensity 8400-Ultra in the POCO X7 Pro is ARMv9.2-A and supports all of the
-above plus SVE2; the core does not require SVE2.
-
+Native ABI: arm64-v8a only. ARMv8.2-A or later.
 
 Prerequisites
 -------------
 
-1. Android Studio (or a standalone Android SDK + NDK + CMake + cmdline-tools).
-2. JDK 17 or newer. Verify with `java -version`.
-3. CMake 3.30 or newer (the NDK's bundled CMake is 3.22 — install a real one).
-4. Ninja (`apt install ninja-build` on Debian, `brew install ninja` on macOS).
-5. `git`, `python3`, `curl` for fetching the source tree.
+1. Android Studio (or a standalone Android SDK + NDK + CMake).
+2. JDK 17+. Verify: `java -version`.
+3. CMake 3.30+. The NDK's bundled 3.22 is NOT sufficient.
+4. Ninja: `apt install ninja-build` or `brew install ninja`.
+5. `git`, `python3`, `curl`.
 
-Environment variables you will want to set:
+Environment variables:
 
     export ANDROID_HOME=$HOME/Android/Sdk
-    export ANDROID_NDK_HOME=$ANDROID_HOME/ndk/27.2.12479018   # use your installed version
+    export ANDROID_NDK_HOME=$ANDROID_HOME/ndk/27.2.12479018
     export JAVA_HOME=$(dirname $(dirname $(readlink -f $(which javac))))
 
-`ANDROID_NDK_HOME` must point at a specific NDK version directory, not the
-`ndk/` root.
-
+`ANDROID_NDK_HOME` must point at a specific NDK version directory.
 
 First-time setup
 ----------------
@@ -50,56 +40,60 @@ First-time setup
     git clone --recursive https://github.com/<your-org>/PocoS3.git
     cd PocoS3
 
-Two dependencies are deliberately not submodules because their upstream repos
-do not use a layout that `git submodule` cleanly tracks:
+    # Two deps that aren't git submodules:
+    git clone --depth 1 https://github.com/SnowflakePowered/librashader 3rdparty/librashader
+    git clone --depth 1 https://github.com/bylaws/libadrenotools android/pocos3-ui/app/src/main/cpp/libadrenotools
 
-    git clone https://github.com/SnowflakePowered/librashader 3rdparty/librashader
-    git clone https://github.com/bylaws/libadrenotools android/pocos3-ui/app/src/main/cpp/libadrenotools
+    # The gradle wrapper jar is committed, so this works without a
+    # pre-installed Gradle:
+    cd android/pocos3-ui && ./gradlew --version
 
-Apply the PocoS3 patches to the upstream RPCS3 source so the Android entry
-points resolve at `dlopen` time. These patches are *additive* — they add an
-`extern "C"` Android surface to RPCS3's existing `main.cpp` / `Emu/System.cpp`
-without altering existing semantics:
+Architecture
+------------
 
-    ./patches/apply.sh third_party/rpcs3
+PocoS3 has TWO native libraries:
 
-If the patches fail to apply, see [`patches/README.md`](patches/README.md) for
-how to resolve rebase conflicts after an upstream RPCS3 update.
+1. **libpocos3-glue.so** (small, ~500 KB): the JNI shim. Built by
+   Gradle's `externalNativeBuild` from
+   `android/pocos3-ui/app/src/main/cpp/CMakeLists.txt` + `native-lib.cpp`.
+   Exports the JNI methods that Kotlin calls.
 
+2. **libpocos3-core.so** (huge, ~1.3 GB unstripped, ~80 MB stripped):
+   the upstream RPCS3 core + PocoS3's entry points. Built by
+   `android/configure.sh` (a standalone CMake + Ninja invocation). The
+   entry points (`_pocos3_*` extern "C" symbols) live in
+   `android/src/pocos3-core.cpp`. The CMake target in
+   `android/CMakeLists.txt` compiles that file + the input handlers +
+   links against `rpcs3_emu` (the upstream RPCS3 object library).
+
+At runtime, libpocos3-glue.so dlopen()s libpocos3-core.so, resolves the
+`_pocos3_*` symbols via dlsym(), and delegates JNI calls to them.
 
 Building the native core
 ------------------------
 
-The native core is built **outside Gradle**, exactly like ARMSX3. Gradle only
-builds the JNI glue (`android/src/`). The core itself is a prebuilt
-`libpocos3-core.so` that the glue `dlopen`s at runtime. This is deliberate: it
-keeps a `./gradlew assembleRelease` from dragging LLVM into every sync.
-
-The convenience script wraps a CMake + Ninja invocation:
-
     ./android/configure.sh --release
 
-Or invoke CMake directly:
+Or, manually:
 
-    cmake -B build-android -G Ninja \
+    cmake -S . -B build-android-release-a13 -G Ninja \
       -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake \
-      -DANDROID_ABI=arm64-v8a \
-      -DANDROID_PLATFORM=android-33 \
+      -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-33 \
       -DCMAKE_BUILD_TYPE=RelWithDebInfo \
-      -DCMAKE_UNITY_BUILD=ON
-    cmake --build build-android --target pocos3-core -j$(nproc)
+      -DANDROID_STL=c++_shared \
+      -DLLVM_TARGETS_TO_BUILD="AArch64;PowerPC;X86" \
+      -DLLVM_BUILD_TOOLS=OFF -DLLVM_INCLUDE_TESTS=OFF -DLLVM_INCLUDE_BENCHMARKS=OFF \
+      -DBUILD_SHARED_LIBS=OFF -DUSE_PRECOMPILED_HEADERS=ON
 
-Strip and place the library where Gradle expects it:
+    cmake --build build-android-release-a13 --target pocos3-core -j$(nproc)
+
+Strip + place where Gradle expects it:
 
     $ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip \
-      --strip-unneeded build-android/android/libpocos3-core.so
+      --strip-unneeded build-android-release-a13/android/libpocos3-core.so
 
-    cp build-android/android/libpocos3-core.so \
+    cp build-android-release-a13/android/libpocos3-core.so \
        android/pocos3-ui/app/src/main/jniLibs/arm64-v8a/
-
-Re-run this step whenever anything under `third_party/rpcs3/` or
-`android/src/` changes.
-
 
 Building the APK
 ----------------
@@ -107,34 +101,55 @@ Building the APK
     cd android/pocos3-ui
     ./gradlew :app:assembleRelease
 
-The APK lands in `app/build/outputs/apk/release/app-release.apk`. You will
-need to sign it; for personal sideload, `apksigner` with a self-created
-keystore is fine. For the GitHub Actions CI build, the workflow signs with a
-debug key by default and produces a `app-release-unsigned.apk` that you must
-re-sign locally before installing on a real device.
-
+The APK lands in `app/build/outputs/apk/release/app-release.apk`.
 
 Build variants
 --------------
 
-`android/build-variants.sh` produces four APK variants keyed on `minSdk` and
-debuggability:
+    ./android/build-variants.sh [variant]
 
-| Variant      | minSdk | Stripped | Debuggable | Suitable for           |
-|--------------|--------|---------|------------|------------------------|
-| debug-a13    | 33     | no      | yes        | local development       |
-| release-a13  | 33     | yes     | no         | POCO X7 Pro ship        |
-| debug-a15    | 35     | no      | yes        | Android 15 dev          |
-| release-a15  | 35     | yes     | no         | Android 15+ production  |
+| Variant      | minSdk | Stripped | Debuggable |
+|--------------|--------|---------|------------|
+| debug-a13    | 33     | no      | yes        |
+| release-a13  | 33     | yes     | no         |
+| debug-a15    | 35     | no      | yes        |
+| release-a15  | 35     | yes     | no         |
 
-The `minSdk` and the API level the core was compiled against **must agree** —
+`minSdk` and the API level the core was compiled against MUST agree —
 an APK that installs below its core's target is a `dlopen` failure at boot.
-
 
 CI
 --
 
-`.github/workflows/android.yml` reproduces the above on a GitHub-hosted Ubuntu
-runner with caching for the NDK and Gradle caches. The first run takes
-roughly 45–75 minutes (mostly LLVM compile); subsequent runs are 8–15 minutes
-if caches hit.
+Two workflows run on push/PR:
+
+1. `.github/workflows/android.yml` — full build (45-75 min on first run,
+   8-15 min after caches hit).
+2. `.github/workflows/gradle-smoke.yml` — Gradle sync test only (~5 min).
+
+Signing
+-------
+
+The CI produces an unsigned APK by default. To sign:
+
+1. Create a keystore locally:
+   ```
+   keytool -genkeypair -keystore pocos3.keystore -alias pocos3 \
+       -keyalg RSA -keysize 4096 -validity 10000
+   ```
+2. Base64-encode it and add as a repo secret `POCOS3_SIGNING_KEY`:
+   ```
+   base64 -w 0 pocos3.keystore > pocos3.keystore.b64
+   # paste into GitHub: Settings → Secrets → Actions → New repository secret
+   ```
+3. Also set `POCOS3_KEY_ALIAS`, `POCOS3_KEYSTORE_PASSWORD`,
+   `POCOS3_KEY_PASSWORD`.
+4. Push a tag `v0.1.0` — CI signs + creates a GitHub release draft.
+
+Running
+-------
+
+PocoS3 needs PS3 firmware, which is NOT included. Install it once via
+the onboarding flow (Settings → Reinstall Firmware).
+
+License: GPL-2.0-only, same as upstream RPCS3.

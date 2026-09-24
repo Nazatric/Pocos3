@@ -1,10 +1,7 @@
 name: Build PocoS3 APK
 
 # =============================================================================
-# GitHub Actions workflow for PocoS3.
-#
-# Produces an APK for arm64-v8a. First run: 45-75 min (mostly LLVM compile).
-# Subsequent runs: 8-15 min if caches hit.
+# GitHub Actions workflow for PocoS3. Builds arm64-v8a APK + (on tags) release.
 # =============================================================================
 
 on:
@@ -16,14 +13,13 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write   # needed for tag-based release uploads
+  contents: write
 
 jobs:
   build-apk:
     name: Build arm64-v8a APK
     runs-on: ubuntu-22.04
     timeout-minutes: 90
-
     env:
       ANDROID_HOME: $ANDROID_SDK_ROOT
       ANDROID_NDK_HOME: $ANDROID_SDK_ROOT/ndk/27.2.12479018
@@ -46,7 +42,7 @@ jobs:
         with:
           packages: 'platform-tools platforms;android-35 ndk;27.2.12479018 cmake;3.31.0'
 
-      - name: Install Ninja
+      - name: Install Ninja + ccache
         run: |
           sudo apt-get update
           sudo apt-get install -y ninja-build ccache
@@ -71,10 +67,10 @@ jobs:
 
       - name: Fetch non-submodule dependencies
         run: |
-          git clone https://github.com/SnowflakePowered/librashader 3rdparty/librashader || true
-          git clone https://github.com/bylaws/libadrenotools android/pocos3-ui/app/src/main/cpp/libadrenotools || true
+          git clone --depth 1 https://github.com/SnowflakePowered/librashader 3rdparty/librashader || true
+          git clone --depth 1 https://github.com/bylaws/libadrenotools android/pocos3-ui/app/src/main/cpp/libadrenotools || true
 
-      - name: Apply PocoS3 patches to upstream RPCS3 (no-op if no patches)
+      - name: Apply PocoS3 patches (no-op if no patches present)
         run: ./patches/apply.sh third_party/rpcs3
 
       - name: Configure CMake (native core)
@@ -104,7 +100,7 @@ jobs:
           cp build-android-release-a13/android/libpocos3-core.so \
              android/pocos3-ui/app/src/main/jniLibs/arm64-v8a/
 
-      - name: Build JNI glue + APK
+      - name: Build APK
         working-directory: android/pocos3-ui
         run: |
           chmod +x gradlew

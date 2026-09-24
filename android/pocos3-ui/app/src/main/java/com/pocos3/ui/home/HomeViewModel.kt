@@ -7,6 +7,7 @@ import com.pocos3.data.GameRepository
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 // =============================================================================
 // Home screen ViewModel.
@@ -25,9 +26,7 @@ class HomeViewModel(
     val gameDirUri: StateFlow<android.net.Uri?> = repo.gameDirUri
 
     fun setGameDirectory(uri: android.net.Uri) {
-        viewModelScope.launch {
-            repo.setGameDirectory(uri)
-        }
+        viewModelScope.launch { repo.setGameDirectory(uri) }
     }
 
     companion object {
@@ -38,8 +37,4 @@ class HomeViewModel(
                     HomeViewModel(GameRepository.get(context)) as T
             }
     }
-}
-
-private fun kotlinx.coroutines.CoroutineScope.launch(block: suspend () -> Unit) {
-    kotlinx.coroutines.launch { block() }
 }

@@ -48,10 +48,8 @@ fun HomeScreen(
     ) { uri ->
         if (uri != null) {
             // Persist permission so we can read the directory across launches.
-            val flags = android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
-            context.contentResolver.takePersistableUriPermission(
-                uri, flags
-            )
+            val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+            context.contentResolver.takePersistableUriPermission(uri, flags)
             vm.setGameDirectory(uri)
         }
     }
@@ -69,7 +67,7 @@ fun HomeScreen(
             GameList(
                 modifier = Modifier.weight(1f),
                 games = games,
-                onPlay = { path -> onPlayGame(path) }
+                onPlay = { path -> onPlayGame(path) },
             )
         }
     }
@@ -186,11 +184,29 @@ private fun GameCard(game: GameModel, onPlay: () -> Unit) {
                     style = MaterialTheme.typography.titleLarge,
                     color = MornyColors.textPrimary,
                 )
-                Text(
-                    game.titleId,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MornyColors.textTertiary,
-                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(MornyShapes.spacingS),
+                ) {
+                    Text(
+                        game.titleId,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MornyColors.textTertiary,
+                    )
+                    game.appVersion?.let {
+                        Text(
+                            "v$it",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MornyColors.textTertiary,
+                        )
+                    }
+                    game.category?.let {
+                        Text(
+                            it,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MornyColors.textTertiary,
+                        )
+                    }
+                }
             }
             Icon(
                 Icons.Default.PlayArrow,
@@ -200,10 +216,3 @@ private fun GameCard(game: GameModel, onPlay: () -> Unit) {
         }
     }
 }
-
-data class GameModel(
-    val path: String,
-    val title: String,
-    val titleId: String,
-    val lastPlayed: Long? = null,
-)
