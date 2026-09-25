@@ -278,6 +278,7 @@ set_property(TARGET ${FAUDIO_TARGET} PROPERTY FOLDER "3rdparty/")
 
 
 # FFMPEG
+# On Android, still set up the ffmpeg include path from the inlined headers.
 if(NOT ANDROID)
         add_library(3rdparty_ffmpeg INTERFACE)
 
@@ -318,6 +319,15 @@ if(NOT ANDROID)
                 )
                 target_include_directories(3rdparty_ffmpeg SYSTEM INTERFACE "ffmpeg/include")
         endif()
+endif()
+
+# On Android, the ffmpeg section above is skipped (if(NOT ANDROID)).
+# But rpcs3_emu still needs the ffmpeg include path. Set it up here.
+if(ANDROID)
+        if(NOT TARGET 3rdparty_ffmpeg)
+                add_library(3rdparty_ffmpeg INTERFACE)
+        endif()
+        target_include_directories(3rdparty_ffmpeg SYSTEM INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/ffmpeg/include")
 endif()
 
 
