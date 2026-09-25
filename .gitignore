@@ -29,7 +29,9 @@ android/pocos3-ui/app/.cxx/
 android/pocos3-ui/app/build/
 
 # Submodule working dirs (must be initialized, not committed)
-/third_party/rpcs3/
+# RPCS3 source IS inlined — do NOT ignore it.
+# Only ignore LLVM (fetched at build time by scripts/fetch-llvm.sh).
+/third_party/rpcs3/3rdparty/llvm/llvm/
 /3rdparty/librashader/
 /android/pocos3-ui/app/src/main/cpp/libadrenotools/
 
