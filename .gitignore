@@ -28,10 +28,15 @@ android/pocos3-ui/local.properties
 android/pocos3-ui/app/.cxx/
 android/pocos3-ui/app/build/
 
-# Submodule working dirs (must be initialized, not committed)
-/third_party/rpcs3/
+# Submodule working dirs that are NOT inlined (still git submodules).
 /3rdparty/librashader/
 /android/pocos3-ui/app/src/main/cpp/libadrenotools/
+
+# LLVM is fetched at build time by scripts/fetch-llvm.sh (too big to ship).
+# All other 3rdparty submodules (asmjit, hidapi, libpng, glslang, wolfssl,
+# ffmpeg, curl, SDL, zstd, 7zip, protobuf, etc.) ARE inlined as committed
+# source files. Do NOT ignore them.
+/third_party/rpcs3/3rdparty/llvm/llvm/
 
 # CMake
 CMakeCache.txt
