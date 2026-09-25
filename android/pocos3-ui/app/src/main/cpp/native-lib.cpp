@@ -5,10 +5,6 @@
 // is the *small* glue: it dlopen()s libpocos3-core.so (built separately by
 // android/configure.sh) and resolves the PocoS3Api function-pointer table
 // via dlsym(). JNI methods on com.pocos3.runtime.PocoS3Core land here.
-//
-// Modeled on ARMSX3's android/armsx3-ui/app/src/main/cpp/native-lib.cpp.
-// The PocoS3Api struct shape mirrors ARMSX3's RPCSXApi because that shape
-// is the right abstraction; the implementation is PocoS3's own.
 // =============================================================================
 
 #include <algorithm>
@@ -30,42 +26,23 @@
 #include <utility>
 #include <vector>
 
-#if defined(__aarch64__)
-// Adrenotools is optional - only built into the glue if POCOS3_WITH_ADRENOTOOLS=ON
-// at CMake time. On Mali devices it is unused; the include is guarded.
-#ifdef POCOS3_WITH_ADRENOTOOLS
-#include <adrenotools/driver.h>
-#include <adrenotools/priv.h>
-#endif
-#endif
-
 #define POCOS3_LOG(prio, msg) __android_log_print(prio, "PocoS3", "%s", (msg).c_str())
 #define POCOS3_LOGF(prio, fmt, ...) __android_log_print(prio, "PocoS3", fmt, ##__VA_ARGS__)
 
 // =============================================================================
 // PocoS3Api - the function-pointer table the JNI glue resolves via dlsym().
 // =============================================================================
-// Each field corresponds to an extern "C" symbol named `_pocos3_<fnname>`
-// in libpocos3-core.so. Required fields are populated via dlsym at
-// nativeInitialise; missing required symbols cause dlopen to fail.
 
 struct PocoS3Api {
-    // Lifecycle
     bool (*initialize)(std::string_view dataDir, std::string_view cacheDir);
     void (*shutdown)();
-
-    // Boot / state
     int  (*boot)(std::string_view path);
     int  (*getState)();
     void (*kill)();
     void (*pause)();
     void (*resume)();
-
-    // Surface (Vulkan VkSurfaceKHR lives in the core, not here)
     bool (*surfaceEvent)(JNIEnv* env, jobject surface, jint event);
     void (*surfaceSizeChanged)(int width, int height);
-
-    // Input
     bool (*overlayPadData)(int port, int digital1, int digital2,
                            int leftStickX, int leftStickY,
                            int rightStickX, int rightStickY);
@@ -75,15 +52,9 @@ struct PocoS3Api {
     int  (*getPadRumble)(int port);
     void (*setPadDeviceClasses)(const int* classes, int count);
     bool (*usbDeviceEvent)(int fd, int vendorId, int productId, int event);
-
-    // Storage / firmware / install
     bool (*installFw)(JNIEnv* env, int fd, long progressId);
     bool (*isInstallableFile)(jint fd);
-    jstring (*getDirInstallPath)(JNIEnv* env, jint fd);
-    jstring (*probePkgInfo)(JNIEnv* env, jint fd);
     bool (*install)(JNIEnv* env, int fd, long progressId);
-
-    // Performance / HUD
     unsigned long long (*getFramePeriodNs)();
     unsigned long long (*getFrameWorkNs)();
     int  (*getRsxThreadTid)();
@@ -91,26 +62,18 @@ struct PocoS3Api {
     std::string (*getCurrentTrophyName)();
     void (*setThermals)(float cpu, float gpu, float battery, int show);
     void (*setRenderPosition)(bool portraitTop, int topInset);
-
-    // Capability / profile
     void (*setCapabilities)(std::string_view json);
     void (*setProfile)(std::string_view json);
     void (*setSocInfo)(std::string_view socInfo);
-
-    // Compilation queue
     bool (*processCompilationQueue)(JNIEnv* env);
     bool (*startMainThreadProcessor)(JNIEnv* env);
     bool (*collectGameInfo)(JNIEnv* env, std::string_view rootDir, long progressId);
-
-    // Restart / capture
     bool (*isRestartPending)();
     void (*openHomeMenu)();
     void (*captureFrame)();
-
-    // Performance snapshot JSON for HUD
+    bool (*saveState)(int slot);
+    bool (*loadState)(int slot);
     std::string (*getPerformanceSnapshot)();
-
-    // Vulkan capability probe - returns JSON
     std::string (*probeVulkan)();
 };
 
@@ -133,8 +96,6 @@ std::string g_data_dir;
 namespace {
 
 bool resolve_api(void* handle, PocoS3Api& api) {
-    // dlsym lookups. Each lookup: the symbol name is _pocos3_<fnname>.
-    // Required = failure if missing. Optional = warning if missing.
     struct ResolveResult { bool ok; void* ptr; };
     auto resolve = [handle](const char* name, bool required) -> ResolveResult {
         void* p = dlsym(handle, name);
@@ -150,7 +111,6 @@ bool resolve_api(void* handle, PocoS3Api& api) {
         return {p != nullptr || !required, p};
     };
 
-    // Required: lifecycle, boot, state, surface, pad
     auto r = resolve("_pocos3_initialize", true);
     if (!r.ok) return false; else api.initialize = (bool(*)(std::string_view, std::string_view))r.ptr;
     r = resolve("_pocos3_shutdown", true);
@@ -170,7 +130,7 @@ bool resolve_api(void* handle, PocoS3Api& api) {
     r = resolve("_pocos3_overlayPadData", true);
     if (!r.ok) return false; else api.overlayPadData = (bool(*)(int, int, int, int, int, int, int))r.ptr;
 
-    // Optional
+    // Optional.
     r = resolve("_pocos3_surfaceSizeChanged", false); api.surfaceSizeChanged = (void(*)(int,int))r.ptr;
     r = resolve("_pocos3_overlayPadPressure", false); api.overlayPadPressure = (bool(*)(int, const int*, int))r.ptr;
     r = resolve("_pocos3_keyboardKey", false); api.keyboardKey = (bool(*)(int, int, bool, bool))r.ptr;
@@ -192,6 +152,13 @@ bool resolve_api(void* handle, PocoS3Api& api) {
     r = resolve("_pocos3_isRestartPending", false); api.isRestartPending = (bool(*)())r.ptr;
     r = resolve("_pocos3_openHomeMenu", false); api.openHomeMenu = (void(*)())r.ptr;
     r = resolve("_pocos3_captureFrame", false); api.captureFrame = (void(*)())r.ptr;
+    r = resolve("_pocos3_saveState", false); api.saveState = (bool(*)(int))r.ptr;
+    r = resolve("_pocos3_loadState", false); api.loadState = (bool(*)(int))r.ptr;
+    r = resolve("_pocos3_getFramePeriodNs", false); api.getFramePeriodNs = (unsigned long long(*)())r.ptr;
+    r = resolve("_pocos3_getFrameWorkNs", false); api.getFrameWorkNs = (unsigned long long(*)())r.ptr;
+    r = resolve("_pocos3_getRsxThreadTid", false); api.getRsxThreadTid = (int(*)())r.ptr;
+    r = resolve("_pocos3_getTitleId", false); api.getTitleId = (std::string(*)())r.ptr;
+    r = resolve("_pocos3_getCurrentTrophyName", false); api.getCurrentTrophyName = (std::string(*)())r.ptr;
     r = resolve("_pocos3_getPerformanceSnapshot", false); api.getPerformanceSnapshot = (std::string(*)())r.ptr;
     r = resolve("_pocos3_probeVulkan", false); api.probeVulkan = (std::string(*)())r.ptr;
 
@@ -217,15 +184,10 @@ extern "C" JNIEXPORT jboolean JNICALL
 Java_com_pocos3_runtime_PocoS3Core_nativeInitialise(
         JNIEnv* env, jclass, jstring jCacheDir, jstring jDataDir) {
     if (g_initialised) return JNI_TRUE;
-
     g_cache_dir = jstr(env, jCacheDir);
-    g_data_dir = jstr(env, jDataDir);
+    g_data_dir  = jstr(env, jDataDir);
     POCOS3_LOGF(ANDROID_LOG_INFO, "PocoS3 glue init; cache=%s data=%s",
                 g_cache_dir.c_str(), g_data_dir.c_str());
-
-    // dlopen the core .so. The android_dlopen_ext variant would give us
-    // namespace isolation; plain dlopen works because both .so files live
-    // in the same linker namespace by virtue of being packaged together.
     g_core_handle = dlopen("libpocos3-core.so", RTLD_NOW | RTLD_LOCAL);
     if (!g_core_handle) {
         const char* err = dlerror();
@@ -236,20 +198,17 @@ Java_com_pocos3_runtime_PocoS3Core_nativeInitialise(
                     "Did you run ./android/configure.sh? See BUILDING.md.");
         return JNI_FALSE;
     }
-
     if (!resolve_api(g_core_handle, g_api)) {
         POCOS3_LOG(ANDROID_LOG_ERROR,
                    "PocoS3Api table did not resolve - core .so is incompatible");
         return JNI_FALSE;
     }
-
     if (g_api.initialize) {
         if (!g_api.initialize(g_data_dir, g_cache_dir)) {
             POCOS3_LOG(ANDROID_LOG_ERROR, "_pocos3_initialize returned false");
             return JNI_FALSE;
         }
     }
-
     g_initialised = true;
     POCOS3_LOG(ANDROID_LOG_INFO, "PocoS3 core loaded and initialised");
     return JNI_TRUE;
@@ -387,8 +346,100 @@ Java_com_pocos3_runtime_PocoS3Core_nativeIsInstallableFile(
     return g_api.isInstallableFile(fd) ? JNI_TRUE : JNI_FALSE;
 }
 
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_pocos3_runtime_PocoS3Core_nativeSaveState(JNIEnv*, jclass, jint slot) {
+    if (!g_api.saveState) return JNI_FALSE;
+    return g_api.saveState(slot) ? JNI_TRUE : JNI_FALSE;
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_pocos3_runtime_PocoS3Core_nativeLoadState(JNIEnv*, jclass, jint slot) {
+    if (!g_api.loadState) return JNI_FALSE;
+    return g_api.loadState(slot) ? JNI_TRUE : JNI_FALSE;
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_com_pocos3_runtime_PocoS3Core_nativeCaptureFrame(JNIEnv*, jclass) {
+    if (g_api.captureFrame) g_api.captureFrame();
+}
+
+// Pad pressure (analog face buttons on DualShock 3).
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_pocos3_runtime_PocoS3Core_nativeOverlayPadPressure(
+        JNIEnv* env, jclass, jint port, jintArray values, jint count) {
+    if (!g_api.overlayPadPressure || !values) return JNI_FALSE;
+    jsize actual = env->GetArrayLength(values);
+    int n = count < actual ? count : actual;
+    jint* ptr = env->GetIntArrayElements(values, nullptr);
+    if (!ptr) return JNI_FALSE;
+    bool ok = g_api.overlayPadPressure(port, ptr, n);
+    env->ReleaseIntArrayElements(values, ptr, JNI_ABORT);
+    return ok ? JNI_TRUE : JNI_FALSE;
+}
+
+// Motion sensor (DualShock 3 / DualSense).
+extern "C" JNIEXPORT void JNICALL
+Java_com_pocos3_runtime_PocoS3Core_nativeSetPadSensor(
+        JNIEnv*, jclass, jint port, jint x, jint y, jint z, jint g) {
+    if (g_api.setPadSensor) g_api.setPadSensor(port, x, y, z, g);
+}
+
+// Rumble feedback (read large motor amplitude 0..255 for the given port).
+extern "C" JNIEXPORT jint JNICALL
+Java_com_pocos3_runtime_PocoS3Core_nativeGetPadRumble(JNIEnv*, jclass, jint port) {
+    if (!g_api.getPadRumble) return 0;
+    return g_api.getPadRumble(port);
+}
+
+// Keyboard input forwarding (cellKb).
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_pocos3_runtime_PocoS3Core_nativeKeyboardKey(
+        JNIEnv*, jclass, jint androidKeyCode, jint unicode, jboolean pressed, jboolean repeat) {
+    if (!g_api.keyboardKey) return JNI_FALSE;
+    return g_api.keyboardKey(androidKeyCode, unicode, pressed == JNI_TRUE, repeat == JNI_TRUE)
+        ? JNI_TRUE : JNI_FALSE;
+}
+
+// Render position hint (for the in-game FPS overlay anchor).
+extern "C" JNIEXPORT void JNICALL
+Java_com_pocos3_runtime_PocoS3Core_nativeSetRenderPosition(
+        JNIEnv*, jclass, jboolean portraitTop, jint topInset) {
+    if (g_api.setRenderPosition) g_api.setRenderPosition(portraitTop == JNI_TRUE, topInset);
+}
+
+// Getters from the running emulator.
+extern "C" JNIEXPORT jstring JNICALL
+Java_com_pocos3_runtime_PocoS3Core_nativeGetTitleId(JNIEnv* env, jclass) {
+    if (!g_api.getTitleId) return env->NewStringUTF("");
+    return env->NewStringUTF(g_api.getTitleId().c_str());
+}
+
+extern "C" JNIEXPORT jlong JNICALL
+Java_com_pocos3_runtime_PocoS3Core_nativeGetFramePeriodNs(JNIEnv*, jclass) {
+    if (!g_api.getFramePeriodNs) return 0;
+    return static_cast<jlong>(g_api.getFramePeriodNs());
+}
+
+extern "C" JNIEXPORT jlong JNICALL
+Java_com_pocos3_runtime_PocoS3Core_nativeGetFrameWorkNs(JNIEnv*, jclass) {
+    if (!g_api.getFrameWorkNs) return 0;
+    return static_cast<jlong>(g_api.getFrameWorkNs());
+}
+
+extern "C" JNIEXPORT jint JNICALL
+Java_com_pocos3_runtime_PocoS3Core_nativeGetRsxThreadTid(JNIEnv*, jclass) {
+    if (!g_api.getRsxThreadTid) return 0;
+    return g_api.getRsxThreadTid();
+}
+
+extern "C" JNIEXPORT jboolean JNICALL
+Java_com_pocos3_runtime_PocoS3Core_nativeIsRestartPending(JNIEnv*, jclass) {
+    if (!g_api.isRestartPending) return JNI_FALSE;
+    return g_api.isRestartPending() ? JNI_TRUE : JNI_FALSE;
+}
+
 // =============================================================================
-// Library init: System.loadLibrary("pocos3-glue") triggers this.
+// Library init
 // =============================================================================
 
 extern "C" JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void*) {

@@ -145,7 +145,3 @@ class EmulationActivity : ComponentActivity() {
         }
     }
 }
-
-// Helper for the Composable to access this Context.
-@androidx.compose.runtime.Composable
-private fun androidx.compose.runtime.remember(activity: EmulationActivity) = activity
