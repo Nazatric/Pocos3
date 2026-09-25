@@ -1,10 +1,15 @@
 if (NOT DEFINED FFMPEG_CORE_NAME)
-	set(FFMPEG_CORE_NAME ffmpeg)
+	set(FFMPEG_CORE_NAME 3rdparty_ffmpeg)
 endif()
 
 add_library(${FFMPEG_CORE_NAME} INTERFACE)
+# Also create an alias with the expected name for 3rdparty/CMakeLists.txt
+if(NOT TARGET 3rdparty_ffmpeg)
+	add_library(3rdparty_ffmpeg INTERFACE)
+endif()
 
 target_include_directories(${FFMPEG_CORE_NAME} INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/include")
+target_include_directories(3rdparty_ffmpeg INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/include")
 
 # Detect OS
 if (WIN32 AND NOT MINGW)
@@ -34,12 +39,18 @@ else ()
 	message(FATAL_ERROR "Unsupported architecture.")
 endif()
 
-# Compute current short git commit SHA
+# Try to compute git SHA, but don't fail if git isn't available
 execute_process(
 	COMMAND git rev-parse --short HEAD
 	WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
 	OUTPUT_VARIABLE FFMPEG_GIT_SHA
-	OUTPUT_STRIP_TRAILING_WHITESPACE)
+	OUTPUT_STRIP_TRAILING_WHITESPACE
+	ERROR_QUIET
+	RESULT_VARIABLE GIT_RESULT)
+
+if(NOT GIT_RESULT EQUAL 0)
+	set(FFMPEG_GIT_SHA "main")
+endif()
 
 # Download prebuilt ffmpeg
 if(NOT EXISTS "${CMAKE_BINARY_DIR}/3rdparty/ffmpeg.zip")
@@ -51,12 +62,12 @@ if(NOT EXISTS "${CMAKE_BINARY_DIR}/3rdparty/ffmpeg.zip")
 		STATUS FILE_STATUS)
 	list(GET FILE_STATUS 0 STATUS_CODE)
 	if (NOT STATUS_CODE EQUAL 0)
-		file(REMOVE "${CMAKE_BINARY_DIR}/3rdparty/ffmpeg.zip") # CMake create 0 byte file even if URL is invalid. So need to delete it.
-		message(FATAL_ERROR "Failed to download FFMPEG prebuilts from: ${FFMPEG_URL}")
+		file(REMOVE "${CMAKE_BINARY_DIR}/3rdparty/ffmpeg.zip")
+		message(WARNING "Failed to download FFMPEG prebuilts from: ${FFMPEG_URL}. Continuing without ffmpeg.")
 	endif()
 endif()
 
-if(NOT EXISTS "${CMAKE_BINARY_DIR}/3rdparty/ffmpeg/lib")
+if(EXISTS "${CMAKE_BINARY_DIR}/3rdparty/ffmpeg.zip" AND NOT EXISTS "${CMAKE_BINARY_DIR}/3rdparty/ffmpeg/lib")
 	execute_process(COMMAND ${CMAKE_COMMAND} -E tar xzf "${CMAKE_BINARY_DIR}/3rdparty/ffmpeg.zip"
 		WORKING_DIRECTORY "${CMAKE_BINARY_DIR}/3rdparty/ffmpeg")
 endif()
@@ -75,10 +86,13 @@ elseif (APPLE)
 		"-framework VideoToolbox" "-framework CoreVideo" "-framework Security")
 endif ()
 
-target_link_libraries(${FFMPEG_CORE_NAME} INTERFACE
-	"${CMAKE_BINARY_DIR}/3rdparty/ffmpeg/lib/${LIB_PREFIX}avformat.${LIB_EXT}"
-	"${CMAKE_BINARY_DIR}/3rdparty/ffmpeg/lib/${LIB_PREFIX}avcodec.${LIB_EXT}"
-	"${CMAKE_BINARY_DIR}/3rdparty/ffmpeg/lib/${LIB_PREFIX}swscale.${LIB_EXT}"
-	"${CMAKE_BINARY_DIR}/3rdparty/ffmpeg/lib/${LIB_PREFIX}avutil.${LIB_EXT}"
-	"${CMAKE_BINARY_DIR}/3rdparty/ffmpeg/lib/${LIB_PREFIX}avfilter.${LIB_EXT}"
-	"${CMAKE_BINARY_DIR}/3rdparty/ffmpeg/lib/${LIB_PREFIX}swresample.${LIB_EXT}")
+# Only link prebuilt libraries if they exist
+if(EXISTS "${CMAKE_BINARY_DIR}/3rdparty/ffmpeg/lib")
+	target_link_libraries(${FFMPEG_CORE_NAME} INTERFACE
+		"${CMAKE_BINARY_DIR}/3rdparty/ffmpeg/lib/${LIB_PREFIX}avformat.${LIB_EXT}"
+		"${CMAKE_BINARY_DIR}/3rdparty/ffmpeg/lib/${LIB_PREFIX}avcodec.${LIB_EXT}"
+		"${CMAKE_BINARY_DIR}/3rdparty/ffmpeg/lib/${LIB_PREFIX}swscale.${LIB_EXT}"
+		"${CMAKE_BINARY_DIR}/3rdparty/ffmpeg/lib/${LIB_PREFIX}avutil.${LIB_EXT}"
+		"${CMAKE_BINARY_DIR}/3rdparty/ffmpeg/lib/${LIB_PREFIX}avfilter.${LIB_EXT}"
+		"${CMAKE_BINARY_DIR}/3rdparty/ffmpeg/lib/${LIB_PREFIX}swresample.${LIB_EXT}")
+endif()
