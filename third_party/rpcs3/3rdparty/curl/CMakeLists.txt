@@ -13,17 +13,10 @@ else()
 	set(BUILD_SHARED_LIBS OFF CACHE INTERNAL "")
 
 	# WolfSSL is built via add_subdirectory in the parent 3rdparty/CMakeLists.txt
-	# before this file is processed. Link directly to the wolfssl target instead
-	# of find_package(WolfSSL) which requires a cmake config file that wolfssl
-	# doesn't generate.
-	if(TARGET wolfssl)
-		message(STATUS "RPCS3: using in-tree wolfssl")
-		set(WOLFSSL_INCLUDE_DIR "" CACHE INTERNAL "")
-		set(WOLFSSL_LIBRARY wolfssl CACHE INTERNAL "")
-	else()
-		# Fallback: try find_package in case wolfssl exports its config.
-		find_package(WolfSSL REQUIRED)
-	endif()
+	# before this file is processed. Set the include dir + library variables so
+	# curl's own FindWolfSSL.cmake module succeeds.
+	set(WOLFSSL_INCLUDE_DIR "${CMAKE_SOURCE_DIR}/third_party/rpcs3/3rdparty/wolfssl/wolfssl" CACHE INTERNAL "")
+	set(WOLFSSL_LIBRARY wolfssl CACHE INTERNAL "")
 
 	set(CURL_USE_WOLFSSL ON CACHE INTERNAL "")
 	set(CURL_USE_OPENSSL OFF CACHE INTERNAL "")
