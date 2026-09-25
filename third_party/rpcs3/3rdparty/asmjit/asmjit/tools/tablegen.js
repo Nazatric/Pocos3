@@ -1,6 +1,6 @@
 // This file is part of AsmJit project <https://asmjit.com>
 //
-// See <asmjit/core.h> or LICENSE.md for license and copyright information
+// See asmjit.h or LICENSE.md for license and copyright information
 // SPDX-License-Identifier: Zlib
 
 // ============================================================================
@@ -18,18 +18,537 @@
 
 const fs = require("fs");
 
-const commons = require("./generator-commons.js");
-const cxx = require("./generator-cxx.js");
+const commons = require("./gencommons.js");
+const cxx = require("./gencxx.js");
 const asmdb = require("../db");
 
 exports.asmdb = asmdb;
 exports.exp = asmdb.base.exp;
 
-const FATAL = commons.FATAL;
-const StringUtils = commons.StringUtils;
+const hasOwn = Object.prototype.hasOwnProperty;
 
+const FATAL = commons.FATAL;
+
+// ============================================================================
+// [Constants]
+// ============================================================================
+
+const kIndent = "  ";
+const kJustify = 119;
 const kAsmJitRoot = "..";
+
+exports.kIndent = kIndent;
+exports.kJustify = kJustify;
 exports.kAsmJitRoot = kAsmJitRoot;
+
+// ============================================================================
+// [Lang]
+// ============================================================================
+
+function nop(x) { return x; }
+
+class Lang {
+  static merge(a, b) {
+    if (a === b)
+      return a;
+
+    for (var k in b) {
+      var av = a[k];
+      var bv = b[k];
+
+      if (typeof av === "object" && typeof bv === "object")
+        Lang.merge(av, bv);
+      else
+        a[k] = bv;
+    }
+
+    return a;
+  }
+
+  static deepEq(a, b) {
+    if (a === b)
+      return true;
+
+    if (typeof a !== typeof b)
+      return false;
+
+    if (typeof a !== "object")
+      return a === b;
+
+    if (Array.isArray(a) || Array.isArray(b)) {
+      if (Array.isArray(a) !== Array.isArray(b))
+        return false;
+
+      const len = a.length;
+      if (b.length !== len)
+        return false;
+
+      for (var i = 0; i < len; i++)
+        if (!Lang.deepEq(a[i], b[i]))
+          return false;
+    }
+    else {
+      if (a === null || b === null)
+        return a === b;
+
+      for (var k in a)
+        if (!hasOwn.call(b, k) || !Lang.deepEq(a[k], b[k]))
+          return false;
+
+      for (var k in b)
+        if (!hasOwn.call(a, k))
+          return false;
+    }
+
+    return true;
+  }
+
+  static deepEqExcept(a, b, except) {
+    if (a === b)
+      return true;
+
+    if (typeof a !== "object" || typeof b !== "object" || Array.isArray(a) || Array.isArray(b))
+      return Lang.deepEq(a, b);
+
+    for (var k in a)
+      if (!hasOwn.call(except, k) && (!hasOwn.call(b, k) || !Lang.deepEq(a[k], b[k])))
+        return false;
+
+    for (var k in b)
+      if (!hasOwn.call(except, k) && !hasOwn.call(a, k))
+        return false;
+
+    return true;
+  }
+}
+exports.Lang = Lang;
+
+// ============================================================================
+// [StringUtils]
+// ============================================================================
+
+class StringUtils {
+  static asString(x) { return String(x); }
+
+  static countOf(s, pattern) {
+    if (!pattern)
+      FATAL(`Pattern cannot be empty`);
+
+    var n = 0;
+    var pos = 0;
+
+    while ((pos = s.indexOf(pattern, pos)) >= 0) {
+      n++;
+      pos += pattern.length;
+    }
+
+    return n;
+  }
+
+  static trimLeft(s) { return s.replace(/^\s+/, ""); }
+  static trimRight(s) { return s.replace(/\s+$/, ""); }
+
+  static upFirst(s) {
+    if (!s) return "";
+    return s[0].toUpperCase() + s.substr(1);
+  }
+
+  static decToHex(n, nPad) {
+    var hex = Number(n < 0 ? 0x100000000 + n : n).toString(16);
+    while (nPad > hex.length)
+      hex = "0" + hex;
+    return "0x" + hex.toUpperCase();
+  }
+
+  static format(array, indent, showIndex, mapFn) {
+    if (!mapFn)
+      mapFn = StringUtils.asString;
+
+    var s = "";
+    var threshold = 80;
+
+    if (showIndex === -1)
+      s += indent;
+
+    for (var i = 0; i < array.length; i++) {
+      const item = array[i];
+      const last = i === array.length - 1;
+
+      if (showIndex !== -1)
+        s += indent;
+
+      s += mapFn(item);
+      if (showIndex > 0) {
+        s += `${last ? " " : ","} // #${i}`;
+        if (typeof array.refCountOf === "function")
+          s += ` [ref=${array.refCountOf(item)}x]`;
+      }
+      else if (!last) {
+        s += ",";
+      }
+
+      if (showIndex === -1) {
+        if (s.length >= threshold - 1 && !last) {
+          s += "\n" + indent;
+          threshold += 80;
+        }
+        else {
+          if (!last) s += " ";
+        }
+      }
+      else {
+        if (!last) s += "\n";
+      }
+    }
+
+    return s;
+  }
+
+  static makeCxxArray(array, code, indent) {
+    if (!indent) indent = kIndent;
+    return `${code} = {\n${indent}` + array.join(`,\n${indent}`) + `\n};\n`;
+  }
+
+  static makeCxxArrayWithComment(array, code, indent) {
+    if (!indent) indent = kIndent;
+    var s = "";
+    for (var i = 0; i < array.length; i++) {
+      const last = i === array.length - 1;
+      s += indent + array[i].data +
+           (last ? "  // " : ", // ") + (array[i].refs ? "#" + String(i) : "").padEnd(5) + array[i].comment + "\n";
+    }
+    return `${code} = {\n${s}};\n`;
+  }
+
+  static disclaimer(s) {
+    return "// ------------------- Automatically generated, do not edit -------------------\n" +
+           s +
+           "// ----------------------------------------------------------------------------\n";
+  }
+
+  static indent(s, indentation) {
+    if (typeof indentation === "number")
+      indentation = " ".repeat(indentation);
+
+    var lines = s.split(/\r?\n/g);
+    if (indentation) {
+      for (var i = 0; i < lines.length; i++) {
+        var line = lines[i];
+        if (line)
+          lines[i] = indentation + line;
+      }
+    }
+
+    return lines.join("\n");
+  }
+
+  static extract(s, start, end) {
+    var iStart = s.indexOf(start);
+    var iEnd   = s.indexOf(end);
+
+    if (iStart === -1)
+      FATAL(`StringUtils.extract(): Couldn't locate start mark '${start}'`);
+
+    if (iEnd === -1)
+      FATAL(`StringUtils.extract(): Couldn't locate end mark '${end}'`);
+
+    return s.substring(iStart + start.length, iEnd).trim();
+  }
+
+  static inject(s, start, end, code) {
+    var iStart = s.indexOf(start);
+    var iEnd   = s.indexOf(end);
+
+    if (iStart === -1)
+      FATAL(`StringUtils.inject(): Couldn't locate start mark '${start}'`);
+
+    if (iEnd === -1)
+      FATAL(`StringUtils.inject(): Couldn't locate end mark '${end}'`);
+
+    var nIndent = 0;
+    while (iStart > 0 && s[iStart-1] === " ") {
+      iStart--;
+      nIndent++;
+    }
+
+    if (nIndent) {
+      const indentation = " ".repeat(nIndent);
+      code = StringUtils.indent(code, indentation) + indentation;
+    }
+
+    return s.substr(0, iStart + start.length + nIndent) + code + s.substr(iEnd);
+  }
+
+  static makePriorityCompare(priorityArray) {
+    const map = Object.create(null);
+    priorityArray.forEach((str, index) => { map[str] = index; });
+
+    return function(a, b) {
+      const ax = hasOwn.call(map, a) ? map[a] : Infinity;
+      const bx = hasOwn.call(map, b) ? map[b] : Infinity;
+      return ax != bx ? ax - bx : a < b ? -1 : a > b ? 1 : 0;
+    }
+  }
+}
+exports.StringUtils = StringUtils;
+
+// ============================================================================
+// [ArrayUtils]
+// ============================================================================
+
+class ArrayUtils {
+  static min(arr, fn) {
+    if (!arr.length)
+      return null;
+
+    if (!fn)
+      fn = nop;
+
+    var v = fn(arr[0]);
+    for (var i = 1; i < arr.length; i++)
+      v = Math.min(v, fn(arr[i]));
+    return v;
+  }
+
+  static max(arr, fn) {
+    if (!arr.length)
+      return null;
+
+    if (!fn)
+      fn = nop;
+
+    var v = fn(arr[0]);
+    for (var i = 1; i < arr.length; i++)
+      v = Math.max(v, fn(arr[i]));
+    return v;
+  }
+
+  static sorted(obj, cmp) {
+    const out = Array.isArray(obj) ? obj.slice() : Object.getOwnPropertyNames(obj);
+    out.sort(cmp);
+    return out;
+  }
+
+  static deepIndexOf(arr, what) {
+    for (var i = 0; i < arr.length; i++)
+      if (Lang.deepEq(arr[i], what))
+        return i;
+    return -1;
+  }
+}
+exports.ArrayUtils = ArrayUtils;
+
+// ============================================================================
+// [MapUtils]
+// ============================================================================
+
+class MapUtils {
+  static clone(map) {
+    return Object.assign(Object.create(null), map);
+  }
+
+  static arrayToMap(arr, value) {
+    if (value === undefined)
+      value = true;
+
+    const out = Object.create(null);
+    for (var i = 0; i < arr.length; i++)
+      out[arr[i]] = value;
+    return out;
+  }
+
+  static equals(a, b) {
+    for (var k in a) if (!hasOwn.call(b, k)) return false;
+    for (var k in b) if (!hasOwn.call(a, k)) return false;
+    return true;
+  }
+
+  static firstOf(map, flags) {
+    for (var k in flags)
+      if (hasOwn.call(map, k))
+        return k;
+    return undefined;
+  }
+
+  static anyOf(map, flags) {
+    for (var k in flags)
+      if (hasOwn.call(map, k))
+        return true;
+    return false;
+  }
+
+  static add(a, b) {
+    for (var k in b)
+      a[k] = b[k];
+    return a;
+  }
+
+  static and(a, b) {
+    const out = Object.create(null);
+    for (var k in a)
+      if (hasOwn.call(b, k))
+        out[k] = true;
+    return out;
+  }
+
+  static xor(a, b) {
+    const out = Object.create(null);
+    for (var k in a) if (!hasOwn.call(b, k)) out[k] = true;
+    for (var k in b) if (!hasOwn.call(a, k)) out[k] = true;
+    return out;
+  }
+};
+exports.MapUtils = MapUtils;
+
+// ============================================================================
+// [CxxUtils]
+// ============================================================================
+
+class CxxUtils {
+  static flags(obj, fn, none) {
+    if (none == null)
+      none = "0";
+
+    if (!fn)
+      fn = nop;
+
+    let out = "";
+    for (let k in obj) {
+      if (obj[k])
+        out += (out ? " | " : "") + fn(k);
+    }
+    return out ? out : none;
+  }
+
+  static struct(...args) {
+    return "{ " + args.join(", ") + " }";
+  }
+};
+exports.CxxUtils = CxxUtils;
+
+// ============================================================================
+// [IndexedString]
+// ============================================================================
+
+// IndexedString is mostly used to merge all instruction names into a single
+// string with external index. It's designed mostly for generating C++ tables.
+//
+// Consider the following cases in C++:
+//
+//   a) static const char* const* instNames = { "add", "mov", "vpunpcklbw" };
+//
+//   b) static const char instNames[] = { "add\0" "mov\0" "vpunpcklbw\0" };
+//      static const uint16_t instNameIndex[] = { 0, 4, 8 };
+//
+// The latter (b) has an advantage that it doesn't have to be relocated by the
+// linker, which saves a lot of space in the resulting binary and a lot of CPU
+// cycles (and memory) when the linker loads it. AsmJit supports thousands of
+// instructions so each optimization like this makes it smaller and faster to
+// load.
+class IndexedString {
+  constructor() {
+    this.map = Object.create(null);
+    this.array = [];
+    this.size = -1;
+  }
+
+  add(s) {
+    this.map[s] = -1;
+  }
+
+  index() {
+    const map = this.map;
+    const array = this.array;
+    const partialMap = Object.create(null);
+
+    var k, kp;
+    var i, len;
+
+    // Create a map that will contain all keys and partial keys.
+    for (k in map) {
+      if (!k) {
+        partialMap[k] = k;
+      }
+      else {
+        for (i = 0, len = k.length; i < len; i++) {
+          kp = k.substr(i);
+          if (!hasOwn.call(partialMap, kp) || partialMap[kp].length < len)
+            partialMap[kp] = k;
+        }
+      }
+    }
+
+    // Create an array that will only contain keys that are needed.
+    for (k in map)
+      if (partialMap[k] === k)
+        array.push(k);
+    array.sort();
+
+    // Create valid offsets to the `array`.
+    var offMap = Object.create(null);
+    var offset = 0;
+
+    for (i = 0, len = array.length; i < len; i++) {
+      k = array[i];
+
+      offMap[k] = offset;
+      offset += k.length + 1;
+    }
+    this.size = offset;
+
+    // Assign valid offsets to `map`.
+    for (kp in map) {
+      k = partialMap[kp];
+      map[kp] = offMap[k] + k.length - kp.length;
+    }
+  }
+
+  format(indent, justify) {
+    if (this.size === -1)
+      FATAL(`IndexedString.format(): not indexed yet, call index()`);
+
+    const array = this.array;
+    if (!justify) justify = 0;
+
+    var i;
+    var s = "";
+    var line = "";
+
+    for (i = 0; i < array.length; i++) {
+      const item = "\"" + array[i] + ((i !== array.length - 1) ? "\\0\"" : "\";");
+      const newl = line + (line ? " " : indent) + item;
+
+      if (newl.length <= justify) {
+        line = newl;
+        continue;
+      }
+      else {
+        s += line + "\n";
+        line = indent + item;
+      }
+    }
+
+    return s + line;
+  }
+
+  getSize() {
+    if (this.size === -1)
+      FATAL(`IndexedString.getSize(): Not indexed yet, call index()`);
+    return this.size;
+  }
+
+  getIndex(k) {
+    if (this.size === -1)
+      FATAL(`IndexedString.getIndex(): Not indexed yet, call index()`);
+
+    if (!hasOwn.call(this.map, k))
+      FATAL(`IndexedString.getIndex(): Key '${k}' not found.`);
+
+    return this.map[k];
+  }
+}
+exports.IndexedString = IndexedString;
+
 
 // ============================================================================
 // [InstructionNameData]
@@ -54,50 +573,35 @@ class InstructionNameData {
     this.maxNameLength = 0;
   }
 
-  add(name, alt) {
-    if (name === alt) {
-      alt = "";
-    }
-
-    if (this.maxNameLength < name.length) {
-      this.maxNameLength = name.length;
-    }
-
-    this.names.push(name);
-
+  add(s) {
     // First try to encode the string with 5-bit characters that fit into a 32-bit int.
-    if (/^[a-z0-4]{0,6}$/.test(name) && !alt) {
+    if (/^[a-z0-4]{0,6}$/.test(s)) {
       let index = 0;
-      for (let i = 0; i < name.length; i++) {
-        index |= charTo5Bit(name[i]) << (i * 5);
-      }
+      for (let i = 0; i < s.length; i++)
+        index |= charTo5Bit(s[i]) << (i * 5);
 
-      this.indexComment.push(`Small '${name}'.`);
+      this.names.push(s);
       this.primaryTable.push(index | (1 << 31));
-    }
-    else if (alt) {
-      const prefixIndex = this.addOrReferenceString(name + String.fromCharCode(alt.length) + alt);
-
-      if (name === "jz") {
-        console.log(`jz prefix: ${prefixIndex}`);
-      }
-
-      this.indexComment.push(`Large '${name}' + '${alt}'`);
-      this.primaryTable.push(prefixIndex | (name.length << 12) | (0xFFF << 16) | 0);
+      this.indexComment.push(`Small '${s}'.`);
     }
     else {
+      // Put the string into a string table.
+      this.names.push(s);
+      this.primaryTable.push(-1);
       this.indexComment.push(``);
-      this.primaryTable.push(0);
     }
+
+    if (this.maxNameLength < s.length)
+      this.maxNameLength = s.length;
   }
 
   index() {
     const kMaxPrefixSize = 15;
-    const kMaxSuffixSize = 6;
+    const kMaxSuffixSize = 7;
     const names = [];
 
     for (let idx = 0; idx < this.primaryTable.length; idx++) {
-      if (this.primaryTable[idx] === 0) {
+      if (this.primaryTable[idx] === -1) {
         names.push({ name: this.names[idx], index: idx });
       }
     }
@@ -160,7 +664,7 @@ class InstructionNameData {
           suffix = name.substring(longestPrefix);
         }
         else if (longestSuffix) {
-          const splitAt = Math.min(name.length - longestSuffix, kMaxPrefixSize);
+          const splitAt = Math.min(name.length - longestSuffix, kMaxPrefixSize);;
           prefix = name.substring(0, splitAt);
           suffix = name.substring(splitAt);
         }
@@ -218,20 +722,11 @@ class InstructionNameData {
       FATAL(`IndexedString.formatStringTable(): Not indexed yet, call index()`);
 
     let s = "";
-    let line = "";
-
-    for (let i = 0; i < this.stringTable.length; i++) {
-      const c = this.stringTable.charCodeAt(i);
-      line += "\\x" + cxx.Utils.toHexRaw(c, 2);
-
-      if (line.length >= 115 || i === this.stringTable.length - 1) {
-        if (s)
-          s += "\n"
-        s += `"${line}"`;
-        line = "";
-      }
+    for (let i = 0; i < this.stringTable.length; i += 80) {
+      if (s)
+        s += "\n"
+      s += '"' + this.stringTable.substring(i, i + 80) + '"';
     }
-
     s += ";\n";
 
     return `const char ${tableName}[] =\n${StringUtils.indent(s, "  ")}\n`;
@@ -248,13 +743,58 @@ class InstructionNameData {
     if (this.size === -1)
       FATAL(`IndexedString.getIndex(): Not indexed yet, call index()`);
 
-    if (!Object.hasOwn(this.map, k))
+    if (!hasOwn.call(this.map, k))
       FATAL(`IndexedString.getIndex(): Key '${k}' not found.`);
 
     return this.map[k];
   }
 }
 exports.InstructionNameData = InstructionNameData;
+
+// ============================================================================
+// [IndexedArray]
+// ============================================================================
+
+// IndexedArray is an Array replacement that allows to index each item inserted
+// to it. Its main purpose is to avoid data duplication, if an item passed to
+// `addIndexed()` is already within the Array then it's not inserted and the
+// existing index is returned instead.
+function IndexedArray_keyOf(item) {
+  return typeof item === "string" ? item : JSON.stringify(item);
+}
+
+class IndexedArray extends Array {
+  constructor() {
+    super();
+    this._index = Object.create(null);
+  }
+
+  refCountOf(item) {
+    const key = IndexedArray_keyOf(item);
+    const idx = this._index[key];
+
+    return idx !== undefined ? idx.refCount : 0;
+  }
+
+  addIndexed(item) {
+    const key = IndexedArray_keyOf(item);
+    var idx = this._index[key];
+
+    if (idx !== undefined) {
+      idx.refCount++;
+      return idx.data;
+    }
+
+    idx = this.length;
+    this._index[key] = {
+      data: idx,
+      refCount: 1
+    };
+    this.push(item);
+    return idx;
+  }
+}
+exports.IndexedArray = IndexedArray;
 
 // ============================================================================
 // [Task]
@@ -283,11 +823,28 @@ exports.Task = Task;
 // [TableGen]
 // ============================================================================
 
-class Injector {
-  constructor() {
+// Main context used to load, generate, and store instruction tables. The idea
+// is to be extensible, so it stores 'Task's to be executed with minimal deps
+// management.
+class TableGen {
+  constructor(arch) {
+    this.arch = arch;
     this.files = Object.create(null);
     this.tableSizes = Object.create(null);
+
+    this.tasks = [];
+    this.taskMap = Object.create(null);
+
+    this.insts = [];
+    this.instMap = Object.create(null);
+
+    this.aliases = [];
+    this.aliasMem = Object.create(null);
   }
+
+  // --------------------------------------------------------------------------
+  // [File Management]
+  // --------------------------------------------------------------------------
 
   load(fileList) {
     for (var i = 0; i < fileList.length; i++) {
@@ -310,9 +867,7 @@ class Injector {
         const path = kAsmJitRoot + "/" + file;
         console.log(`MODIFIED '${file}'`);
 
-        if (!fs.existsSync(path + ".backup")) {
-          fs.writeFileSync(path + ".backup", obj.prev, "utf8");
-        }
+        fs.writeFileSync(path + ".backup", obj.prev, "utf8");
         fs.writeFileSync(path, obj.data, "utf8");
       }
     }
@@ -348,42 +903,6 @@ class Injector {
       this.tableSizes[key] = size;
 
     return this;
-  }
-
-  dumpTableSizes() {
-    const sizes = this.tableSizes;
-
-    var pad = 26;
-    var total = 0;
-
-    for (var name in sizes) {
-      const size = sizes[name];
-      total += size;
-      console.log(("Size of " + name).padEnd(pad) + ": " + size);
-    }
-
-    console.log("Size of all tables".padEnd(pad) + ": " + total);
-  }
-}
-exports.Injector = Injector;
-
-// Main context used to load, generate, and store instruction tables. The idea
-// is to be extensible, so it stores 'Task's to be executed with minimal deps
-// management.
-class TableGen extends Injector {
-  constructor(arch) {
-    super();
-
-    this.arch = arch;
-
-    this.tasks = [];
-    this.taskMap = Object.create(null);
-
-    this.insts = [];
-    this.instMap = Object.create(null);
-
-    this.aliases = [];
-    this.aliasMem = Object.create(null);
   }
 
   // --------------------------------------------------------------------------
@@ -442,7 +961,7 @@ class TableGen extends Injector {
   // [Instruction Management]
   // --------------------------------------------------------------------------
 
-  addInstruction(inst) {
+  addInst(inst) {
     if (this.instMap[inst.name])
       FATAL(`TableGen.addInst(): Instruction '${inst.name}' already added`);
 
@@ -471,6 +990,25 @@ class TableGen extends Injector {
   }
 
   // --------------------------------------------------------------------------
+  // [Other]
+  // --------------------------------------------------------------------------
+
+  dumpTableSizes() {
+    const sizes = this.tableSizes;
+
+    var pad = 26;
+    var total = 0;
+
+    for (var name in sizes) {
+      const size = sizes[name];
+      total += size;
+      console.log(("Size of " + name).padEnd(pad) + ": " + size);
+    }
+
+    console.log("Size of all tables".padEnd(pad) + ": " + total);
+  }
+
+  // --------------------------------------------------------------------------
   // [Hooks]
   // --------------------------------------------------------------------------
 
@@ -495,35 +1033,19 @@ class IdEnum extends Task {
   run() {
     const insts = this.ctx.insts;
 
-    let s = "";
-    let aliases = "";
-
-    for (let i = 0; i < insts.length; i++) {
+    var s = "";
+    for (var i = 0; i < insts.length; i++) {
       const inst = insts[i];
 
-      let line = "kId" + inst.enum + (i ? "" : " = 0") + ",";
-      let text = this.comment(inst);
+      var line = "kId" + inst.enum + (i ? "" : " = 0") + ",";
+      var text = this.comment(inst);
 
       if (text)
         line = line.padEnd(37) + "//!< " + text;
 
       s += line + "\n";
-
-      if (inst.aliases) {
-        for (let aliasName of inst.aliases.aliasNames) {
-          if (aliases) aliases += ",\n";
-          aliases += `kId${StringUtils.makeEnumName(aliasName)} = kId${inst.enum}`;
-        }
-      }
     }
-    s += "_kIdCount";
-
-    if (aliases) {
-      s += ",\n\n" + "// Aliases.\n" + aliases + "\n";
-    }
-    else {
-      s += "\n";
-    }
+    s += "_kIdCount\n";
 
     return this.ctx.inject("InstId", s);
   }
@@ -534,122 +1056,59 @@ exports.IdEnum = IdEnum;
 // [NameTable]
 // ============================================================================
 
-class Output {
-  constructor() {
-    this.content = Object.create(null);
-    this.tableSize = Object.create(null);
-  }
-
-  add(id, content, tableSize) {
-    this.content[id] = content;
-    this.tableSize[id] = typeof tableSize === "number" ? tableSize : 0;
-  }
-};
-exports.Output = Output;
-
-function cmp(a, b) { return (a < b) ? -1 : a > b ? 1 : 0; }
-
-function generateNameData(out, instructions, generateAliases) {
-  const none = "Inst::kIdNone";
-
-  const aliases = [];
-  const aliasNameData = new InstructionNameData();
-  const aliasLinkData = [];
-
-  const instFirst = new Array(26);
-  const instLast  = new Array(26);
-  const instNameData = new InstructionNameData();
-
-  for (let i = 0; i < instructions.length; i++) {
-    const instruction = instructions[i];
-
-    if (instruction.aliases) {
-      instNameData.add(instruction.displayName, instruction.aliases.format);
-      for (let aliasName of instruction.aliases.aliasNames) {
-        aliases.push({ name: instruction.name, alt: aliasName });
-      }
-    }
-    else {
-      instNameData.add(instruction.displayName);
-    }
-  }
-
-  aliases.sort(function(a, b) { return cmp(a.alt, b.alt); });
-
-  for (let i = 0; i < aliases.length; i++) {
-    const alias = aliases[i];
-    aliasNameData.add(alias.alt);
-    aliasLinkData.push(`Inst::kId${StringUtils.makeEnumName(alias.name)}`);
-  }
-
-  instNameData.index();
-  aliasNameData.index();
-
-  for (let i = 0; i < instructions.length; i++) {
-    const inst = instructions[i];
-    const displayName = inst.displayName;
-    const alphaIndex = displayName.charCodeAt(0) - 'a'.charCodeAt(0);
-
-    if (alphaIndex < 0 || alphaIndex >= 26)
-      FATAL(`generateNameData(): Invalid lookup character '${displayName[0]}' of '${displayName}'`);
-
-    if (instFirst[alphaIndex] === undefined)
-      instFirst[alphaIndex] = `Inst::kId${inst.enum}`;
-    instLast[alphaIndex] = `Inst::kId${inst.enum}`;
-  }
-
-  var s = "";
-  s += `const InstNameIndex InstDB::_inst_name_index = {{\n`;
-  for (var i = 0; i < instFirst.length; i++) {
-    const firstId = instFirst[i] || none;
-    const lastId = instLast[i] || none;
-
-    s += `  { ${String(firstId).padEnd(22)}, ${String(lastId).padEnd(22)} + 1 }`;
-    if (i !== 26 - 1)
-      s += `,`;
-    s += `\n`;
-  }
-  s += `}, uint16_t(${instNameData.maxNameLength})};\n`;
-  s += `\n`;
-  s += instNameData.formatStringTable("InstDB::_inst_name_string_table");
-  s += `\n`;
-  s += instNameData.formatIndexTable("InstDB::_inst_name_index_table");
-
-  let dataSize = instNameData.getSize() + 26 * 4;
-
-  if (generateAliases) {
-    s += `\n`;
-    s += aliasNameData.formatStringTable("InstDB::alias_name_string_table");
-    s += `\n`;
-    s += aliasNameData.formatIndexTable("InstDB::alias_name_index_table");
-    s += "\n";
-    s += "const uint32_t InstDB::alias_index_to_inst_id_table[] = {\n" + StringUtils.format(aliasLinkData, "  ", true, null) + "\n};\n";
-
-    dataSize += aliasNameData.getSize();
-    let info = `static constexpr uint32_t kAliasTableSize = ${aliasLinkData.length};\n`;
-    out.add("NameDataInfo", StringUtils.disclaimer(info), 0);
-  }
-
-  out.add("NameData", StringUtils.disclaimer(s), dataSize);
-  return out;
-}
-exports.generateNameData = generateNameData;
-
 class NameTable extends Task {
-  constructor(name, deps, generateAliases) {
+  constructor(name, deps) {
     super(name || "NameTable", deps);
-    this.generateAliases = generateAliases;
   }
 
   run() {
-    const output = new Output();
-    generateNameData(output, this.ctx.insts, this.generateAliases);
+    const none = "Inst::kIdNone";
+    const insts = this.ctx.insts;
 
-    this.ctx.inject("NameData", output.content["NameData"], output.tableSize["NameData"]);
+    const instFirst = new Array(26);
+    const instLast  = new Array(26);
 
-    if (this.generateAliases) {
-      this.ctx.inject("NameDataInfo", output.content["NameDataInfo"], output.tableSize["NameDataInfo"]);
+    const instNameData = new InstructionNameData();
+
+    for (let i = 0; i < insts.length; i++)
+      instNameData.add(insts[i].displayName);
+    instNameData.index();
+
+    for (let i = 0; i < insts.length; i++) {
+      const inst = insts[i];
+      const name = inst.displayName;
+      const index = name.charCodeAt(0) - 'a'.charCodeAt(0);
+
+      if (index < 0 || index >= 26)
+        FATAL(`TableGen.generateNameData(): Invalid lookup character '${name[0]}' of '${name}'`);
+
+      if (instFirst[index] === undefined)
+        instFirst[index] = `Inst::kId${inst.enum}`;
+      instLast[index] = `Inst::kId${inst.enum}`;
     }
+
+    var s = "";
+    s += instNameData.formatIndexTable("InstDB::_instNameIndexTable");
+    s += `\n`;
+    s += instNameData.formatStringTable("InstDB::_instNameStringTable");
+    s += `\n`;
+
+    s += `const InstDB::InstNameIndex InstDB::instNameIndex[26] = {\n`;
+    for (var i = 0; i < instFirst.length; i++) {
+      const firstId = instFirst[i] || none;
+      const lastId = instLast[i] || none;
+
+      s += `  { ${String(firstId).padEnd(22)}, ${String(lastId).padEnd(22)} + 1 }`;
+      if (i !== 26 - 1)
+        s += `,`;
+      s += `\n`;
+    }
+    s += `};\n`;
+
+    this.ctx.inject("NameLimits",
+      StringUtils.disclaimer(`enum : uint32_t { kMaxNameSize = ${instNameData.maxNameLength} };\n`));
+
+    return this.ctx.inject("NameData", StringUtils.disclaimer(s), instNameData.getSize() + 26 * 4);
   }
 }
 exports.NameTable = NameTable;

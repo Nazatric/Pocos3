@@ -3,6 +3,8 @@
 const fs = require("fs");
 const path = require("path");
 
+const hasOwn = Object.prototype.hasOwnProperty;
+
 // ============================================================================
 // [Tokenizer]
 // ============================================================================
@@ -80,6 +82,7 @@ class Tokenizer {
 
 function parseEnum(input) {
   const map = Object.create(null);
+  const hasOwn = Object.prototype.hasOwnProperty;
   const tokenizer = new Tokenizer(input, tokenizerPatterns);
 
   var value = -1;
@@ -102,7 +105,7 @@ function parseEnum(input) {
         value++;
       }
 
-      if (!Object.hasOwn(map, symbol))
+      if (!hasOwn.call(map, symbol))
         map[symbol] = value;
       else
         console.log(`${symbol} already defined, skipping...`);
@@ -125,6 +128,22 @@ function parseEnum(input) {
 
 function compare(a, b) {
   return a < b ? -1 : a == b ? 0 : 1;
+}
+
+function compactedSize(table) {
+  var size = 0;
+  for (var i = 0; i < table.length; i++)
+    size += table[i].name.length + 1;
+  return size;
+}
+
+function indexTypeFromSize(size) {
+  if (size <= 256)
+    return 'uint8_t';
+  else if (size <= 65536)
+    return 'uint16_t';
+  else
+    return 'uint32_t';
 }
 
 function indent(s, indentation) {
@@ -154,7 +173,7 @@ function stringifyEnum(map, options) {
       if (name.startsWith(stripPrefix))
         name = name.substring(stripPrefix.length);
       else
-        throw Error(`Cannot strip prefix '${stripPrefix}' in '${k}'`);
+        throw Error(`Cannot strip prefix '${stripPrefix}' in '${key}'`);
     }
 
     table.push({ name: name, value: map[k] });
@@ -162,7 +181,11 @@ function stringifyEnum(map, options) {
   }
 
   table.sort(function(a, b) { return compare(a.value, b.value); });
+
+  const unknownIndex = compactedSize(table);
   table.push({ name: "<Unknown>", value: max + 1 });
+
+  const indexType = indexTypeFromSize(compactedSize(table));
 
   function buildStringData() {
     var s = "";
@@ -175,7 +198,42 @@ function stringifyEnum(map, options) {
     return s;
   }
 
-  output += `static constexpr char ${outputPrefix}_data[] =\n` + buildStringData();
+  function buildIndexData() {
+    var index = 0;
+    var indexArray = [];
+
+    for (var i = 0; i < table.length; i++) {
+      while (indexArray.length < table[i].value)
+        indexArray.push(unknownIndex);
+
+      indexArray.push(index);
+      index += table[i].name.length + 1;
+    }
+
+    var s = "";
+    var line = "";
+    var pos = 0;
+
+    for (var i = 0; i < indexArray.length; i++) {
+      if (line)
+        line += " ";
+
+      line += `${indexArray[i]}`;
+      if (i != indexArray.length - 1)
+        line += `,`;
+
+      if (i == indexArray.length - 1 || line.length >= 72) {
+        s += `  ${line}\n`;
+        line = "";
+      }
+    }
+
+    return s;
+  }
+
+  output += `static const char ${outputPrefix}String[] =\n` + buildStringData() + `\n`;
+  output += `static const ${indexType} ${outputPrefix}Index[] = {\n` + buildIndexData() + `};\n`;
+
   return output;
 }
 
@@ -278,7 +336,7 @@ class Generator {
       if (!enumName)
         throw Error(`Missing 'enum' in '${def[0]}`);
 
-      if (Object.hasOwn(this.enumMap, enumName))
+      if (hasOwn.call(this.enumMap, enumName))
         throw new Error(`Enumeration '${enumName}' is already defined`);
 
       const startIndex = src.lastIndexOf("\n", def.index) + 1;
@@ -320,7 +378,7 @@ class Generator {
       if (!enumName)
         throwError(`Missing 'name' in '${def[0]}`);
 
-      if (!Object.hasOwn(this.enumMap, enumName))
+      if (!hasOwn.call(this.enumMap, enumName))
         throw new Error(`Enumeration '${enumName}' not found`);
 
       console.log(`  Injecting Enum: ${enumName}`);
@@ -350,7 +408,7 @@ class Generator {
 }
 
 const generator = new Generator({
-  baseDir : path.resolve(__dirname, ".."),
+  baseDir : path.resolve(__dirname, "../src"),
   verify  : process.argv.indexOf("--verify") !== -1,
   noBackup: process.argv.indexOf("--no-backup") !== -1
 });
