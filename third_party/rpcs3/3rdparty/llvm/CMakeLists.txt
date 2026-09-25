@@ -51,6 +51,13 @@ if(WITH_LLVM)
 
                 set(STATIC_LINK_LLVM ON CACHE BOOL "Link against LLVM statically. This will get set to ON if you build LLVM from the submodule." FORCE)
 
+                # Manually set LLVM_INCLUDE_DIRS since we skipped find_package(LLVM).
+                # The LLVM build generates llvm-config.h in the build include dir.
+                set(LLVM_INCLUDE_DIRS
+                    "${CMAKE_CURRENT_SOURCE_DIR}/llvm/llvm/llvm/include"
+                    "${CMAKE_CURRENT_BINARY_DIR}/llvm_build/include"
+                    CACHE STRING "LLVM include directories" FORCE)
+
                 # find_package(LLVM 22.1 CONFIG) — skipped when BUILD_LLVM=ON.
                 # The LLVM targets are already available from add_subdirectory above.
                 # The find_package check fails because the cmake config files are
