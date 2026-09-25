@@ -1,2 +1,2 @@
 # Stub
-add_library(pine INTERFACE)
+add_library(3rdparty_pine INTERFACE)

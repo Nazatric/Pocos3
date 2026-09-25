@@ -1,2 +1,2 @@
 # Stub
-add_library(GPUOpen INTERFACE)
+add_library(3rdparty_vulkanmemoryallocator INTERFACE)

@@ -1,2 +1,2 @@
 # Stub
-add_library(bcdec INTERFACE)
+add_library(3rdparty_bcdec INTERFACE)

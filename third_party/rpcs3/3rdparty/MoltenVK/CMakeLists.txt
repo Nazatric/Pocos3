@@ -1,2 +1,2 @@
 # Stub
-add_library(MoltenVK INTERFACE)
+add_library(3rdparty_moltenvk INTERFACE)
