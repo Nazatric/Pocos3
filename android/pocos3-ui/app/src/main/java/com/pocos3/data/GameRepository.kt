@@ -6,7 +6,7 @@ import com.pocos3.storage.GameScanner
 import com.pocos3.ui.home.GameModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -25,6 +25,10 @@ import kotlinx.coroutines.withContext
 
 class GameRepository private constructor(private val context: Context) {
 
+    // Application-scoped CoroutineScope avoids GlobalScope leaks across
+    // Activity recreation.
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
     private val _games = MutableStateFlow<List<GameModel>>(emptyList())
     val games: StateFlow<List<GameModel>> = _games.asStateFlow()
 
@@ -37,10 +41,9 @@ class GameRepository private constructor(private val context: Context) {
     init {
         prefs.getString(KEY_GAME_DIR_URI, null)?.let { uriString ->
             _gameDirUri.value = Uri.parse(uriString)
-            // Re-scan on a background thread.
             val uri = _gameDirUri.value
             if (uri != null) {
-                GlobalScope.launch(Dispatchers.IO) { scan(uri) }
+                scope.launch { scan(uri) }
             }
         }
     }

@@ -16,7 +16,10 @@ import com.pocos3.ui.settings.PocoS3Settings
 import com.pocos3.ui.settings.SettingsScreen
 import com.pocos3.ui.system.SystemInfoScreen
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 
 // =============================================================================
 // PocoS3 navigation host.
@@ -35,9 +38,20 @@ fun PocoS3NavigationHost() {
     val navController = rememberNavController()
     val context = LocalContext.current
     val settings = remember { PocoS3Settings.get(context) }
-    val firstRunDone = remember { runBlocking { settings.firstRunDone.first() } }
 
-    val startDestination = if (firstRunDone) "home" else "onboarding"
+    // Async-load firstRunDone; show a blank surface until resolved (avoids
+    // runBlocking on the main thread).
+    var firstRunDone by remember { mutableStateOf<Boolean?>(null) }
+    LaunchedEffect(Unit) {
+        firstRunDone = settings.firstRunDone.first()
+    }
+
+    val resolved = firstRunDone
+    if (resolved == null) {
+        Surface(modifier = Modifier.fillMaxSize()) { /* brief splash */ }
+        return
+    }
+    val startDestination = if (resolved) "home" else "onboarding"
 
     Surface(modifier = Modifier.fillMaxSize()) {
         NavHost(navController = navController, startDestination = startDestination) {
