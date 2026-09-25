@@ -1,14 +1,21 @@
 name: Gradle Smoke Test
 
 # =============================================================================
-# Quick sanity check that the Gradle project syncs without the full LLVM
-# build. Runs on every push + PR. Takes ~5 min.
+# Quick sanity check that the Gradle project + Kotlin code compiles WITHOUT
+# the full LLVM build. Runs on every push + PR. Takes ~5 min.
 #
 # This catches:
 #   - Malformed build.gradle.kts
 #   - Wrong version catalog entries
 #   - Missing dependencies
+#   - Kotlin compile errors
 #   - Compose compiler errors
+#
+# IMPORTANT: this workflow uses -x externalNativeBuildDebug to skip the
+# CMake step. The externalNativeBuild in app/build.gradle.kts points at
+# src/main/cpp/CMakeLists.txt (the small glue build), NOT the root
+# CMakeLists.txt — otherwise Gradle would try to evaluate the entire
+# RPCS3 source tree on every sync and OOM the runner.
 # =============================================================================
 
 on:
@@ -20,6 +27,7 @@ on:
   pull_request:
     paths:
       - 'android/pocos3-ui/**'
+  workflow_dispatch:
 
 jobs:
   gradle-sync:
@@ -30,6 +38,8 @@ jobs:
     steps:
       - name: Checkout PocoS3
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
 
       - name: Set up JDK 17
         uses: actions/setup-java@v5
@@ -40,7 +50,7 @@ jobs:
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
         with:
-          packages: 'platform-tools platforms;android-35'
+          packages: 'platform-tools platforms;android-35 ndk;27.2.12479018 cmake;3.31.0'
 
       - name: Cache Gradle
         uses: actions/cache@v4
@@ -52,13 +62,44 @@ jobs:
           key: gradle-smoke-${{ runner.os }}-${{ hashFiles('android/pocos3-ui/**/*.gradle*', 'android/pocos3-ui/**/libs.versions.toml') }}
           restore-keys: gradle-smoke-${{ runner.os }}-
 
+      - name: Verify externalNativeBuild path
+        working-directory: android/pocos3-ui
+        run: |
+          # Fail early if externalNativeBuild accidentally points at the
+          # root CMakeLists.txt (would cause Gradle sync to OOM evaluating
+          # the inlined RPCS3 source tree).
+          if grep -E 'path = file\("\.\./\.\./CMakeLists' app/build.gradle.kts; then
+            echo "ERROR: externalNativeBuild points at the root CMakeLists.txt."
+            echo "This would cause Gradle sync to evaluate the entire RPCS3"
+            echo "source tree on every sync. Fix: change path to"
+            echo "'src/main/cpp/CMakeLists.txt'."
+            exit 1
+          fi
+          echo "OK: externalNativeBuild path is correct."
+
       - name: Gradle dependency dump
         working-directory: android/pocos3-ui
         run: |
           chmod +x gradlew
           ./gradlew :app:dependencies --configuration releaseRuntimeClasspath --no-daemon
 
-      - name: Lint Kotlin (basic)
+      - name: Compile Kotlin (no native build)
         working-directory: android/pocos3-ui
-        run: ./gradlew :app:lintRelease --no-daemon -x externalNativeBuildRelease -x externalNativeBuildDebug
-        continue-on-error: true
+        run: |
+          # Compile Kotlin sources without invoking the CMake native build.
+          # -x externalNativeBuild* skips the CMake step entirely.
+          # --info gives more detail on any compile errors.
+          ./gradlew :app:compileDebugKotlin --no-daemon \
+            -x externalNativeBuildDebug -x externalNativeBuildRelease \
+            -Dorg.gradle.jvmargs="-Xmx4g -XX:+UseParallelGC"
+
+      - name: Upload compile errors (if any)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gradle-smoke-errors
+          path: |
+            android/pocos3-ui/app/build/reports
+            android/pocos3-ui/app/build/outputs
+          if-no-files-found: ignore
+          retention-days: 7

@@ -31,16 +31,23 @@ android {
         versionCode = 1
         versionName = "0.1.0-dev"
 
-        // Build the JNI glue via CMake. The glue .so is small and fast to compile.
+        // Build the JNI glue via CMake. The glue .so is small and fast to
+        // compile (it's just the dlopen + dlsym shim).
+        //
+        // CRITICAL: externalNativeBuild points at the SMALL glue CMakeLists
+        // (src/main/cpp/CMakeLists.txt), NOT the root CMakeLists.txt. The
+        // root would drag LLVM + the entire RPCS3 source tree into every
+        // Gradle sync, causing memory exhaustion + multi-minute sync times.
+        // The core .so (libpocos3-core.so) is built separately by
+        // android/configure.sh.
         externalNativeBuild {
             cmake {
-                path = file("../../CMakeLists.txt")
+                path = file("src/main/cpp/CMakeLists.txt")
                 version = "3.30.0+"
-                // Build only the JNI glue target; the core .so is built out-of-band.
                 targets += listOf("pocos3-glue")
                 arguments += listOf(
                     "-DANDROID_STL=c++_shared",
-                    "-DCMAKE_BUILD_TYPE=Release"  // overridden per-variant below
+                    "-DCMAKE_BUILD_TYPE=Release"
                 )
                 cppFlags += listOf("-std=c++23", "-fno-exceptions", "-fno-rtti")
             }
