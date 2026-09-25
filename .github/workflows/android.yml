@@ -73,6 +73,22 @@ jobs:
       - name: Apply PocoS3 patches (no-op if no patches present)
         run: ./patches/apply.sh third_party/rpcs3
 
+      - name: Free up disk space on the runner
+        run: |
+          # Do NOT delete /usr/local/lib/android — that is where the NDK lives!
+          # Deleting it causes CMake to fail with "Could not find toolchain file".
+          sudo rm -rf /usr/share/dotnet \
+                     /opt/ghc /usr/local/share/boost \
+                     /usr/local/share/vcpkg /usr/share/swift 2>/dev/null || true
+          sudo apt-get clean
+          df -h /
+
+      - name: Fetch LLVM (the one giant dep not inlined in the repo)
+        run: |
+          chmod +x scripts/fetch-llvm.sh
+          ./scripts/fetch-llvm.sh
+          df -h /
+
       - name: Configure CMake (native core)
         run: |
           cmake -S . -B build-android-release-a13 -G Ninja \
