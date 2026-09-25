@@ -133,7 +133,8 @@ if(WITH_LLVM)
         if(BUILD_LLVM)
                 target_include_directories(3rdparty_llvm SYSTEM INTERFACE
                         "${CMAKE_CURRENT_SOURCE_DIR}/llvm/llvm/llvm/include"
-                        "${CMAKE_CURRENT_BINARY_DIR}/llvm_build/include")
+                        "${CMAKE_CURRENT_BINARY_DIR}/llvm_build/include"
+                        "${CMAKE_CURRENT_BINARY_DIR}/llvm_build/llvm/include")
         else()
                 target_include_directories(3rdparty_llvm SYSTEM INTERFACE ${LLVM_INCLUDE_DIRS})
         endif()

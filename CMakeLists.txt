@@ -93,7 +93,8 @@ add_subdirectory(${RPCS3_EMU_DIR} ${CMAKE_BINARY_DIR}/rpcs3)
 if(TARGET rpcs3_emu AND BUILD_LLVM)
     target_include_directories(rpcs3_emu SYSTEM PRIVATE
         "${CMAKE_SOURCE_DIR}/third_party/rpcs3/3rdparty/llvm/llvm/llvm/include"
-        "${CMAKE_BINARY_DIR}/rpcs3/3rdparty/llvm/llvm_build/include")
+        "${CMAKE_BINARY_DIR}/rpcs3/3rdparty/llvm/llvm_build/include"
+        "${CMAKE_BINARY_DIR}/rpcs3/3rdparty/llvm/llvm_build/llvm/include")
 endif()
 
 # -----------------------------------------------------------------------------
