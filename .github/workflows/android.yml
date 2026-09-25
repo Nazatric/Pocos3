@@ -115,7 +115,8 @@ jobs:
 
       - name: Build native core (libpocos3-core.so)
         run: |
-          cmake --build build-android-release-a13 --target pocos3-core -j$(nproc)
+          # -j2 to avoid OOM during LLVM linking on 16 GB runners.
+          cmake --build build-android-release-a13 --target pocos3-core -j2
           $ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip \
             --strip-unneeded build-android-release-a13/android/libpocos3-core.so
           mkdir -p android/pocos3-ui/app/src/main/jniLibs/arm64-v8a
