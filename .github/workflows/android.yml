@@ -119,6 +119,7 @@ jobs:
             -DUSE_SYSTEM_MVK=OFF \
             -DUSE_SYSTEM_OPENCV=OFF \
             -DFFMPEG_CORE_NAME=3rdparty_ffmpeg \
+            -DCMAKE_CXX_SCAN_FOR_MODULES=OFF \
             -DPOCOS3_BUILD_GLUE=OFF
 
       - name: Build native core (libpocos3-core.so)
