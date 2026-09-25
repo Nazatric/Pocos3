@@ -12,7 +12,9 @@ fi
 echo "fetch-llvm.sh: cloning LLVM (shallow, depth 1) into $LLVM_DIR"
 mkdir -p "$(dirname "$LLVM_DIR")"
 
-git clone --depth 1 --filter=blob:none --single-branch \
+# IMPORTANT: do NOT use --filter=blob:none — it skips file content downloads
+# and CMake can't read the LLVM CMakeLists.txt files. Use --depth 1 only.
+git clone --depth 1 --single-branch \
     https://github.com/llvm/llvm-project.git "$LLVM_DIR"
 
 echo "fetch-llvm.sh: LLVM ready at $LLVM_DIR"
