@@ -127,7 +127,16 @@ if(WITH_LLVM)
 
         add_library(3rdparty_llvm INTERFACE)
         target_link_libraries(3rdparty_llvm INTERFACE ${LLVM_LIBS})
-        target_include_directories(3rdparty_llvm SYSTEM INTERFACE ${LLVM_INCLUDE_DIRS})
+        # Hard-code the LLVM include paths when BUILD_LLVM=ON. The
+        # LLVM_INCLUDE_DIRS variable may be overwritten by LLVM's own
+        # CMakeLists.txt during add_subdirectory.
+        if(BUILD_LLVM)
+                target_include_directories(3rdparty_llvm SYSTEM INTERFACE
+                        "${CMAKE_CURRENT_SOURCE_DIR}/llvm/llvm/llvm/include"
+                        "${CMAKE_CURRENT_BINARY_DIR}/llvm_build/include")
+        else()
+                target_include_directories(3rdparty_llvm SYSTEM INTERFACE ${LLVM_INCLUDE_DIRS})
+        endif()
         separate_arguments(LLVM_DEFINITIONS_LIST NATIVE_COMMAND ${LLVM_DEFINITIONS})
         target_compile_definitions(3rdparty_llvm INTERFACE ${LLVM_DEFINITIONS_LIST} LLVM_AVAILABLE)
 
