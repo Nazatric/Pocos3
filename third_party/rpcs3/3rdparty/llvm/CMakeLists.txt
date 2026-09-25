@@ -106,14 +106,21 @@ if(WITH_LLVM)
                         list (APPEND LLVM_ADDITIONAL_LIBS PerfJITEvents)
                 endif()
 
-                llvm_map_components_to_libnames(LLVM_LIBS
-                        ${LLVM_TARGETS_TO_BUILD}
-                        ${LLVM_ADDITIONAL_LIBS}
-                        Core
-                        ExecutionEngine
-                        MCJIT
-                        Passes
-                )
+                # When BUILD_LLVM=ON, llvm_map_components_to_libnames may not be
+                # available because find_package(LLVM) was skipped. Use the LLVM
+                # target directly instead.
+                if(BUILD_LLVM)
+                        set(LLVM_LIBS LLVM)
+                else()
+                        llvm_map_components_to_libnames(LLVM_LIBS
+                                ${LLVM_TARGETS_TO_BUILD}
+                                ${LLVM_ADDITIONAL_LIBS}
+                                Core
+                                ExecutionEngine
+                                MCJIT
+                                Passes
+                        )
+                endif()
         else()
                 set(LLVM_LIBS LLVM)
         endif()
