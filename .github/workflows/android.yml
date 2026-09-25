@@ -105,7 +105,12 @@ jobs:
             -DLLVM_INCLUDE_EXAMPLES=OFF \
             -DBUILD_SHARED_LIBS=OFF \
             -DUSE_PRECOMPILED_HEADERS=ON \
-            -DPOCOS3_BUILD_GLUE=ON
+            -DUSE_SYSTEM_SDL=OFF \
+            -DUSE_SYSTEM_OPENAL=OFF \
+            -DUSE_SYSTEM_PUGIXML=OFF \
+            -DUSE_SYSTEM_LIBUSB=OFF \
+            -DUSE_SYSTEM_VULKAN_MEMORY_ALLOCATOR=OFF \
+            -DPOCOS3_BUILD_GLUE=OFF
 
       - name: Build native core (libpocos3-core.so)
         run: |
