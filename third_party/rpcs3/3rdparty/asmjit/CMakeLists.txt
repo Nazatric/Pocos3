@@ -8,7 +8,15 @@ set(ASMJIT_DIR "${CMAKE_CURRENT_SOURCE_DIR}/asmjit" CACHE PATH "Location of 'asm
 
 include("${ASMJIT_DIR}/CMakeLists.txt")
 
-add_library(asmjit ${ASMJIT_SRC})
+# ASMJIT_SRC contains RELATIVE paths (e.g. "asmjit/core.h") that are
+# relative to ASMJIT_DIR. Convert them to absolute paths so the
+# add_library below can find them from any CMakeLists.txt context.
+set(ASMJIT_SRC_ABS "")
+foreach(_src ${ASMJIT_SRC})
+	list(APPEND ASMJIT_SRC_ABS "${ASMJIT_DIR}/${_src}")
+endforeach()
+
+add_library(asmjit ${ASMJIT_SRC_ABS})
 target_include_directories(asmjit SYSTEM PUBLIC ${ASMJIT_DIR}/src)
 target_link_libraries(asmjit PRIVATE ${ASMJIT_DEPS})
 
