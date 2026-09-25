@@ -106,6 +106,7 @@ jobs:
             -DBUILD_SHARED_LIBS=OFF \
             -DUSE_PRECOMPILED_HEADERS=ON \
             -DBUILD_LLVM=ON \
+            -DWITH_LLVM=ON \
             -DUSE_SYSTEM_SDL=OFF \
             -DUSE_SYSTEM_OPENAL=OFF \
             -DUSE_SYSTEM_PUGIXML=OFF \
