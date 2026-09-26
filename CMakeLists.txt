@@ -117,6 +117,14 @@ if(TARGET rpcs3_emu AND BUILD_LLVM)
     if(ANDROID_ABI STREQUAL "arm64-v8a")
         target_compile_options(rpcs3_emu PRIVATE -march=armv8.1-a+rdm)
     endif()
+    # Regenerate np2_structs.pb.h/.cc using the bundled protoc binary
+    # before rpcs3_emu tries to compile pb_helpers.cpp. The pre-generated
+    # files in rpcs3/Emu/NP/generated were made by protobuf 6.33 but the
+    # bundled submodule is 7.37 — the API mismatch causes ClassDataLite
+    # template errors.
+    if(TARGET regenerate_np2_protobuf)
+        add_dependencies(rpcs3_emu regenerate_np2_protobuf)
+    endif()
     # hidapi is required by Input/hid_pad_handler.h (#include <hidapi.h>).
     # Upstream links it only via the desktop-only rpcs3_lib target, so we
     # must explicitly link 3rdparty::hidapi to rpcs3_emu on Android
