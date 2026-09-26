@@ -65,7 +65,6 @@ android {
         debug {
             isMinifyEnabled = false
             isDebuggable = true
-            jniDebuggable = true
             packaging { jniLibs { keepDebugSymbols += "**/*.so" } }
         }
         release {
@@ -95,7 +94,7 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
-        isCoreLibraryDesugaringEnabled = true
+        isCoreLibraryDesugaringEnabled = false
     }
 
     kotlinOptions {
