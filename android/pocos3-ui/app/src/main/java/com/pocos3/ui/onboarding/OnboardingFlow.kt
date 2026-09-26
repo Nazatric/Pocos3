@@ -21,6 +21,7 @@ import com.pocos3.ui.settings.PocoS3Settings
 import com.pocos3.ui.theme.MornyColors
 import com.pocos3.ui.theme.MornyShapes
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 
 // =============================================================================
 // Onboarding flow.
@@ -41,7 +42,7 @@ fun OnboardingFlow(onComplete: () -> Unit) {
 
     // Step state.
     var firmwareDone by remember {
-        mutableStateOf(settings.firstRunDone)
+        mutableStateOf(runBlocking { settings.firstRunDone.first() })
     }
     var firmwareInstalling by remember { mutableStateOf(false) }
     var firmwareError by remember { mutableStateOf<String?>(null) }
@@ -139,8 +140,7 @@ fun OnboardingFlow(onComplete: () -> Unit) {
             onAction = {
                 controllerDone = true
                 // Open Bluetooth system settings so the user can pair a controller.
-                val intent = Intent(android.bluetooth.bluetooth.adapter.
-                    actionRequestDiscoverable)
+                val intent = Intent(android.provider.Settings.ACTION_BLUETOOTH_SETTINGS)
                 intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
                 runCatching { context.startActivity(intent) }
             },
