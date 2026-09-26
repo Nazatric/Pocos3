@@ -71,7 +71,7 @@ object CpuTopology {
         return sysCpu.listFiles { f -> f.isDirectory && f.name.matches(Regex("cpu\\d+")) }
             ?.mapNotNull { cpuDir ->
                 val id = cpuDir.name.removePrefix("cpu").toIntOrNull() ?: return@mapNotNull null
-                val maxFreq = File(cpuDir, "cpufreq/cpuinfo_max_freq").readText().trim().toLongOrNull() ?: 0L
+                val maxFreqKHz = File(cpuDir, "cpufreq/cpuinfo_max_freq").readText().trim().toLongOrNull() ?: 0L
                 val pkgId = File(cpuDir, "topology/physical_package_id").readText().trim().toIntOrNull() ?: 0
                 // Heuristic: A "big" core peaks above ~2.4 GHz (2_400_000 KHz). This
                 // threshold is the modern mobile-SoC big/LITTLE dividing line.
