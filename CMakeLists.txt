@@ -101,6 +101,12 @@ if(TARGET rpcs3_emu AND BUILD_LLVM)
     # Demote implicit-fallthrough to warning: bin_patch.cpp and a few other
     # switch cases throw_exception and fall through to the next case.
     target_compile_options(rpcs3_emu PRIVATE -Wno-error=implicit-fallthrough)
+    # ARM: enable RDM intrinsics (vqrdmlahq_s16 etc.) — clang 18 does not
+    # enable +rdm by default for -march=armv8.1-a, so simd.hpp's gv_rmuladds_hds16
+    # fails to compile in PPUInterpreter.cpp.
+    if(ANDROID_ABI STREQUAL "arm64-v8a")
+        target_compile_options(rpcs3_emu PRIVATE -march=armv8.1-a+rdm)
+    endif()
     # Ensure LLVM-generated headers (.inc files from tablegen) exist
     # before rpcs3_emu source files try to compile.
     if(TARGET llvm-tblgen)
