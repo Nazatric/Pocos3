@@ -14,6 +14,6 @@ data class GameModel(
 ) {
     val isDisc: Boolean get() = category == "DG" || category == "GD"
     val isHddGame: Boolean get() = category == "HG" || category == "HD"
-    val isPsp: Boolean get() == category == "PE" || category == "PP"
+    val isPsp: Boolean get() = category == "PE" || category == "PP"
     val isPs2: Boolean get() = category == "2G" || category == "2P"
 }
