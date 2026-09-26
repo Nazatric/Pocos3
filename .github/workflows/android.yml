@@ -69,6 +69,8 @@ jobs:
         run: |
           git clone --depth 1 https://github.com/SnowflakePowered/librashader 3rdparty/librashader || true
           git clone --depth 1 https://github.com/bylaws/libadrenotools android/pocos3-ui/app/src/main/cpp/libadrenotools || true
+          # Fetch xioTechnologies Fusion (sensor fusion library used by PadHandler.h)
+          git clone --depth 1 https://github.com/xioTechnologies/Fusion third_party/rpcs3/3rdparty/fusion/fusion || true
 
       - name: Apply PocoS3 patches (no-op if no patches present)
         run: ./patches/apply.sh third_party/rpcs3
