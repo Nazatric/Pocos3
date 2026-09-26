@@ -30,13 +30,13 @@ class BootSplashActivity : ComponentActivity() {
                     // TODO: Mornye logo draw. For now, empty surface so the
                     // colour system reads cleanly.
                 }
+                // Delay then bounce.
+                LaunchedEffect(Unit) {
+                    delay(600)
+                    startActivity(Intent(this@BootSplashActivity, MainActivity::class.java))
+                    finish()
+                }
             }
-        }
-        // Delay then bounce.
-        LaunchedEffect(Unit) {
-            delay(600)
-            startActivity(Intent(this@BootSplashActivity, MainActivity::class.java))
-            finish()
         }
     }
 }
