@@ -23,9 +23,9 @@ object MornyMotion {
     const val DurSheetExpand = 320
     const val DurGlassShimmer = 1200
 
-    fun <T> fadeIn(durationMs: Int = DurFadeInDefault) =
-        tween<T>(durationMs = durationMs, easing = MornyEasing)
+    fun <T> fadeIn(durationMillis: Int = DurFadeInDefault) =
+        tween<T>(durationMillis = durationMillis, easing = MornyEasing)
 
-    fun <T> slideUp(durationMs: Int = DurSlideUpDefault) =
-        tween<T>(durationMs = durationMs, easing = MornyEasing)
+    fun <T> slideUp(durationMillis: Int = DurSlideUpDefault) =
+        tween<T>(durationMillis = durationMillis, easing = MornyEasing)
 }
