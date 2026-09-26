@@ -109,12 +109,65 @@ if(TARGET rpcs3_emu AND BUILD_LLVM)
     endif()
     # Ensure LLVM-generated headers (.inc files from tablegen) exist
     # before rpcs3_emu source files try to compile.
+    # With EXCLUDE_FROM_ALL on the LLVM subdirectory, only explicitly-
+    # requested targets are built. We must explicitly depend on the LLVM
+    # libraries that own the tablegen .inc files rpcs3_emu needs
+    # (e.g. LLVMAnalysis owns TargetLibraryInfo.inc).
     if(TARGET llvm-tblgen)
         add_dependencies(rpcs3_emu llvm-tblgen)
     endif()
-    if(TARGET LLVMTargetParser)
-        add_dependencies(rpcs3_emu LLVMTargetParser)
-    endif()
+    # Add explicit deps on every LLVM component we might pull headers from.
+    # The if(TARGET ...) guards make this safe across LLVM versions.
+    foreach(_llvm_dep
+            LLVM
+            LLVMCore
+            LLVMAnalysis
+            LLVMTargetParser
+            LLVMSupport
+            LLVMTarget
+            LLVMCodeGen
+            LLVMSelectionDAG
+            LLVMGlobalISel
+            LLVMAsmPrinter
+            LLVMMC
+            LLVMObject
+            LLVMBitReader
+            LLVMBitWriter
+            LLVMProfileData
+            LLVMInstrumentation
+            LLVMPasses
+            LLVMIRReader
+            LLVMIRPrinter
+            LLVMTransformUtils
+            LLVMDebugInfoDWARF
+            LLVMDebugInfoMSF
+            LLVMDebugInfoCodeView
+            LLVMDebugInfoPDB
+            LLVMDemangle
+            LLVMCodeGenTypes
+            LLVMBinaryFormat
+            LLVMRemarks
+            LLVMIRPrinter
+            LLVMTextAPI
+            LLVMSupport
+            LLVMObjectYAML
+            LLVMMCDisassembler
+            LLVMMCParser
+            LLVMCIrPrinter
+            LLVMFuzzerCLI
+            LLVMFuzzerMutate
+            LLVMCore
+            LLVMAArch64CodeGen
+            LLVMAArch64AsmParser
+            LLVMAArch64AsmPrinter
+            LLVMAArch64Desc
+            LLVMAArch64Disassembler
+            LLVMAArch64Info
+            LLVMAArch64Utils)
+        if(TARGET ${_llvm_dep})
+            add_dependencies(rpcs3_emu ${_llvm_dep})
+        endif()
+    endforeach()
 endif()
 
 # -----------------------------------------------------------------------------
