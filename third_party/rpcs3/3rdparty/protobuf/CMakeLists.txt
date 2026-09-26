@@ -33,7 +33,7 @@ else()
 	# This causes "no template named 'ClassDataLite' in namespace google::protobuf::internal"
 	# compile errors because protobuf 7.x renamed ClassDataLite<N> to ClassData.
 	# Solution: regenerate np2_structs.pb.h/.cc using the just-built protoc binary.
-	set(NP_PROTOBUF_DIR "${CMAKE_SOURCE_DIR}/rpcs3/Emu/NP/generated")
+	set(NP_PROTOBUF_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../rpcs3/Emu/NP/generated")
 	if(TARGET protoc)
 		add_custom_command(
 			OUTPUT "${NP_PROTOBUF_DIR}/np2_structs.pb.h.stamp"
