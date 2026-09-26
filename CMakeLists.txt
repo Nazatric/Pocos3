@@ -114,6 +114,12 @@ if(TARGET rpcs3_emu AND BUILD_LLVM)
     if(TARGET 3rdparty::hidapi)
         target_link_libraries(rpcs3_emu PUBLIC 3rdparty::hidapi)
     endif()
+    # fusion (xioTechnologies/Fusion) is required by Emu/Io/PadHandler.cpp
+    # which calls FusionAhrsInitialise / FusionAhrsSetSettings / fusionAhrsDefaultSettings.
+    # Upstream links it via rpcs3_lib (desktop only), so on Android we link it here.
+    if(TARGET 3rdparty::fusion)
+        target_link_libraries(rpcs3_emu PUBLIC 3rdparty::fusion)
+    endif()
     # Ensure LLVM-generated headers (.inc files from tablegen) exist
     # before rpcs3_emu source files try to compile.
     # With EXCLUDE_FROM_ALL on the LLVM subdirectory, only explicitly-
