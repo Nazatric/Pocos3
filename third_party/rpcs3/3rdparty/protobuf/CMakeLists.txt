@@ -13,7 +13,7 @@ else()
 	option(protobuf_BUILD_CONFORMANCE "Build conformance tests" OFF)
 	option(protobuf_BUILD_EXAMPLES "Build examples" OFF)
 	option(protobuf_BUILD_PROTOBUF_BINARIES "Build protobuf libraries and protoc compiler" ON)
-	option(protobuf_BUILD_PROTOC_BINARIES "Build libprotoc and protoc compiler" ON)
+	option(protobuf_BUILD_PROTOC_BINARIES "Build libprotoc and protoc compiler" OFF)
 	option(protobuf_BUILD_LIBPROTOC "Build libprotoc" OFF)
 	option(protobuf_BUILD_LIBUPB "Build libupb" OFF)
 	option(protobuf_ALLOW_CCACHE "Adjust build flags to allow for ccache support." ON)
@@ -34,16 +34,18 @@ else()
 	# compile errors because protobuf 7.x renamed ClassDataLite<N> to ClassData.
 	# Solution: regenerate np2_structs.pb.h/.cc using the just-built protoc binary.
 	set(NP_PROTOBUF_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../rpcs3/Emu/NP/generated")
-	if(TARGET protoc)
-		add_custom_command(
-			OUTPUT "${NP_PROTOBUF_DIR}/np2_structs.pb.h.stamp"
-			COMMAND $<TARGET_FILE:protoc> --cpp_out=${NP_PROTOBUF_DIR} --proto_path=${NP_PROTOBUF_DIR} np2_structs.proto
-			COMMAND ${CMAKE_COMMAND} -E touch "${NP_PROTOBUF_DIR}/np2_structs.pb.h.stamp"
-			DEPENDS protoc "${NP_PROTOBUF_DIR}/np2_structs.proto"
-			COMMENT "Regenerating np2_structs.pb.h/.cc using bundled protoc"
-		)
-		add_custom_target(regenerate_np2_protobuf DEPENDS "${NP_PROTOBUF_DIR}/np2_structs.pb.h.stamp")
-		# rpcs3_emu dependency on regenerate_np2_protobuf is wired in the root
+	# Find the host-built protoc binary (built in the workflow step
+	# "Build host protoc" — installed to /usr/local/bin/protoc).
+	find_program(HOST_PROTOC protoc PATHS /usr/local/bin /usr/bin REQUIRED)
+	message(STATUS "PocoS3: Using host protoc: ${HOST_PROTOC}")
+	add_custom_command(
+		OUTPUT "${NP_PROTOBUF_DIR}/np2_structs.pb.h.stamp"
+		COMMAND ${HOST_PROTOC} --cpp_out=${NP_PROTOBUF_DIR} --proto_path=${NP_PROTOBUF_DIR} np2_structs.proto
+		COMMAND ${CMAKE_COMMAND} -E touch "${NP_PROTOBUF_DIR}/np2_structs.pb.h.stamp"
+		DEPENDS "${NP_PROTOBUF_DIR}/np2_structs.proto"
+		COMMENT "Regenerating np2_structs.pb.h/.cc using host protoc"
+	)
+	add_custom_target(regenerate_np2_protobuf DEPENDS "${NP_PROTOBUF_DIR}/np2_structs.pb.h.stamp")
+	# rpcs3_emu dependency on regenerate_np2_protobuf is wired in the root
 	# CMakeLists.txt AFTER add_subdirectory(third_party/rpcs3) creates rpcs3_emu.
-	endif()
 endif()
