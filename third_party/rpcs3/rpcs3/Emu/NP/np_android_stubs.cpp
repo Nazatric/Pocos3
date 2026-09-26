@@ -55,7 +55,8 @@ void print_error(CommandType /*command*/, ErrorType /*error*/) {}
 // All return defaults; get_instance() returns nullptr which np_handler.cpp
 // handles via null-shared_ptr checks before calling.
 // -----------------------------------------------------------------------------
-rpcn_client::rpcn_client(u32 /*binding_address*/) {}
+rpcn_client::rpcn_client(u32 /*binding_address*/)
+    : sem_connected(0), sem_authentified(0), sem_reader(0), sem_writer(0), sem_rpcn(0) {}
 rpcn_client::~rpcn_client() {}
 std::shared_ptr<rpcn_client> rpcn_client::get_instance(u32 /*binding_address*/, bool /*check_config*/) { return nullptr; }
 rpcn_state rpcn_client::wait_for_connection() { return rpcn_state::failure_no_failure; }
@@ -122,7 +123,7 @@ bool rpcn_client::get_score_data(u32 /*req_id*/, const SceNpCommunicationId& /*c
 bool rpcn_client::tus_set_multislot_variable(u32 /*req_id*/, const SceNpCommunicationId& /*communication_id*/, const SceNpOnlineId& /*targetNpId*/, vm::cptr<SceNpTusSlotId> /*slotIdArray*/, vm::cptr<s64> /*variableArray*/, s32 /*arrayNum*/, bool /*vuser*/) { return false; }
 bool rpcn_client::tus_get_multislot_variable(u32 /*req_id*/, const SceNpCommunicationId& /*communication_id*/, const SceNpOnlineId& /*targetNpId*/, vm::cptr<SceNpTusSlotId> /*slotIdArray*/, s32 /*arrayNum*/, bool /*vuser*/) { return false; }
 bool rpcn_client::tus_get_multiuser_variable(u32 /*req_id*/, const SceNpCommunicationId& /*communication_id*/, const std::vector<SceNpOnlineId>& /*targetNpIdArray*/, SceNpTusSlotId /*slotId*/, s32 /*arrayNum*/, bool /*vuser*/) { return false; }
-bool rpcn_client::tus_get_friends_variable(u32 /*req_id*/, const SceNpCommunicationId& /*communication_id*/, SceNpTusSlotId /*slotId*/, bool /*includeSelf*/, s32 /*sortType*/, u32 /*arrayNum*/) { return false; }
+bool rpcn_client::tus_get_friends_variable(u32 /*req_id*/, const SceNpCommunicationId& /*communication_id*/, SceNpTusSlotId /*slotId*/, bool /*includeSelf*/, s32 /*sortType*/, s32 /*arrayNum*/) { return false; }
 bool rpcn_client::tus_add_and_get_variable(u32 /*req_id*/, const SceNpCommunicationId& /*communication_id*/, const SceNpOnlineId& /*targetNpId*/, SceNpTusSlotId /*slotId*/, s64 /*inVariable*/, vm::ptr<SceNpTusAddAndGetVariableOptParam> /*option*/, bool /*vuser*/) { return false; }
 bool rpcn_client::tus_try_and_set_variable(u32 /*req_id*/, const SceNpCommunicationId& /*communication_id*/, const SceNpOnlineId& /*targetNpId*/, SceNpTusSlotId /*slotId*/, s32 /*opeType*/, s64 /*variable*/, vm::ptr<SceNpTusTryAndSetVariableOptParam> /*option*/, bool /*vuser*/) { return false; }
 bool rpcn_client::tus_delete_multislot_variable(u32 /*req_id*/, const SceNpCommunicationId& /*communication_id*/, const SceNpOnlineId& /*targetNpId*/, vm::cptr<SceNpTusSlotId> /*slotIdArray*/, s32 /*arrayNum*/, bool /*vuser*/) { return false; }
@@ -130,7 +131,7 @@ bool rpcn_client::tus_set_data(u32 /*req_id*/, SceNpCommunicationId& /*communica
 bool rpcn_client::tus_get_data(u32 /*req_id*/, SceNpCommunicationId& /*communication_id*/, const SceNpOnlineId& /*targetNpId*/, SceNpTusSlotId /*slotId*/, bool /*vuser*/) { return false; }
 bool rpcn_client::tus_get_multislot_data_status(u32 /*req_id*/, SceNpCommunicationId& /*communication_id*/, const SceNpOnlineId& /*targetNpId*/, vm::cptr<SceNpTusSlotId> /*slotIdArray*/, s32 /*arrayNum*/, bool /*vuser*/) { return false; }
 bool rpcn_client::tus_get_multiuser_data_status(u32 /*req_id*/, SceNpCommunicationId& /*communication_id*/, const std::vector<SceNpOnlineId>& /*targetNpIdArray*/, SceNpTusSlotId /*slotId*/, s32 /*arrayNum*/, bool /*vuser*/) { return false; }
-bool rpcn_client::tus_get_friends_data_status(u32 /*req_id*/, SceNpCommunicationId& /*communication_id*/, SceNpTusSlotId /*slotId*/, bool /*includeSelf*/, s32 /*sortType*/, u32 /*arrayNum*/) { return false; }
+bool rpcn_client::tus_get_friends_data_status(u32 /*req_id*/, SceNpCommunicationId& /*communication_id*/, SceNpTusSlotId /*slotId*/, bool /*includeSelf*/, s32 /*sortType*/, s32 /*arrayNum*/) { return false; }
 bool rpcn_client::tus_delete_multislot_data(u32 /*req_id*/, SceNpCommunicationId& /*communication_id*/, const SceNpOnlineId& /*targetNpId*/, vm::cptr<SceNpTusSlotId> /*slotIdArray*/, s32 /*arrayNum*/, bool /*vuser*/) { return false; }
 bool rpcn_client::send_presence(const SceNpCommunicationId& /*pr_com_id*/, const std::string& /*pr_title*/, const std::string& /*pr_status*/, const std::string& /*pr_comment*/, const std::vector<u8>& /*pr_data*/) { return false; }
 bool rpcn_client::unlock_trophy(const SceNpCommunicationId& /*communication_id*/, s32 /*trophy_id*/, s64 /*timestamp*/) { return false; }
