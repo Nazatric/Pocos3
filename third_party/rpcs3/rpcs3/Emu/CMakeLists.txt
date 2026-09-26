@@ -454,30 +454,45 @@ target_sources(rpcs3_emu PRIVATE
     Io/LogitechG27Config.cpp
 )
 
-# Np
+# Np - protobuf-independent files (always built on all platforms).
 target_sources(rpcs3_emu PRIVATE
-    NP/pb_helpers.cpp
     NP/np_cache.cpp
     NP/np_gui_cache.cpp
     NP/np_contexts.cpp
     NP/np_dnshook.cpp
-    NP/np_requests_gui.cpp
     NP/np_handler.cpp
     NP/np_helpers.cpp
-    NP/np_notifications.cpp
-    NP/np_requests.cpp
     NP/signaling_handler.cpp
     NP/np_structs_extra.cpp
     NP/clans_client.cpp
     NP/clans_config.cpp
-    NP/rpcn_client.cpp
     NP/rpcn_config.cpp
     NP/rpcn_countries.cpp
     NP/upnp_config.cpp
     NP/upnp_handler.cpp
     NP/ip_address.cpp
-    NP/generated/np2_structs.pb.cc
 )
+
+# Np - protobuf-dependent files.
+# PocoS3 Android: excluded entirely to eliminate the protobuf dependency.
+# RPCN/PSN online play is non-functional on Android (Sony shut down PS3
+# PSN in 2021; RPCN custom servers don't apply to mobile-only use cases).
+# All external symbols these files export are provided as no-op stubs in
+# NP/np_android_stubs.cpp (added to the build only on Android below).
+if(NOT ANDROID)
+    target_sources(rpcs3_emu PRIVATE
+        NP/pb_helpers.cpp
+        NP/np_requests_gui.cpp
+        NP/np_notifications.cpp
+        NP/np_requests.cpp
+        NP/rpcn_client.cpp
+        NP/generated/np2_structs.pb.cc
+    )
+else()
+    target_sources(rpcs3_emu PRIVATE
+        NP/np_android_stubs.cpp
+    )
+endif()
 
 # Memory
 target_sources(rpcs3_emu PRIVATE
