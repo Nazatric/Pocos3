@@ -185,7 +185,7 @@ private fun AnalogStick(modifier: Modifier = Modifier, onStick: (Int, Int) -> Un
                 onDragEnd = { pos = Offset.Zero; onStick(0, 0) },
                 onDrag = { change, _ ->
                     pos = change.position
-                    val (cx, cy) = size.center()
+                    val cx = size.width / 2f; val cy = size.height / 2f
                     val dx = (pos.x - cx) / (size.width / 2f)
                     val dy = (pos.y - cy) / (size.height / 2f)
                     val mag = hypot(dx, dy).coerceAtMost(1f)
@@ -214,8 +214,9 @@ private fun AnalogStick(modifier: Modifier = Modifier, onStick: (Int, Int) -> Un
 
 @Composable
 private fun TouchButton(
-    modifier: Modifier = Modifier,
     label: String = "",
+    sizeDp: Int = 24,
+    modifier: Modifier = Modifier,
     onPressChange: (Boolean) -> Unit,
 ) {
     var pressed by remember { mutableStateOf(false) }
@@ -248,5 +249,3 @@ private fun TouchButton(
     }
 }
 
-private fun androidx.compose.ui.unit.IntSize.center() = Pair(width / 2f, height / 2f)
-private fun IntSize.center() = Pair(width / 2f, height / 2f)
