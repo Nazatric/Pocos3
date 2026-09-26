@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
 import java.util.Locale
 
@@ -26,7 +27,7 @@ class I18n private constructor(private val context: Context) {
     val currentLanguage: StateFlow<String> = _currentLanguage.asStateFlow()
 
     init {
-        load(Locale.getDefault().language.ifEmpty { "en" })
+        runBlocking { load(Locale.getDefault().language.ifEmpty { "en" }) }
     }
 
     suspend fun load(language: String) = withContext(Dispatchers.IO) {
