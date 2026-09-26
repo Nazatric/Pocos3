@@ -35,8 +35,8 @@ fun SystemInfoScreen() {
     var mem by remember { mutableStateOf("loading...") }
     var display by remember { mutableStateOf("loading...") }
 
+    val ctx = androidx.compose.ui.platform.LocalContext.current
     LaunchedEffect(Unit) {
-        val ctx = androidx.compose.ui.platform.LocalContext.current
         profile = DeviceProfileRegistry.detect(ctx).toString()
         cpu = CpuTopology.probe().toString()
         // Run on IO; the memory probe reads ActivityManager on the main thread.
