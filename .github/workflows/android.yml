@@ -85,6 +85,31 @@ jobs:
           sudo apt-get clean
           df -h /
 
+      - name: Build host protoc (needed to regenerate np2_structs.pb.h)
+        run: |
+          # Build protoc for the HOST platform (x86_64 Linux) using the bundled
+          # protobuf submodule. The bundled protoc built during the cross-compile
+          # is for Android arm64 — useless on the x86_64 runner.
+          mkdir -p /tmp/protoc-host-build && cd /tmp/protoc-host-build
+          cmake $GITHUB_WORKSPACE/third_party/rpcs3/3rdparty/protobuf/protobuf \
+            -DCMAKE_BUILD_TYPE=Release \
+            -Dprotobuf_BUILD_TESTS=OFF \
+            -Dprotobuf_BUILD_CONFORMANCE=OFF \
+            -Dprotobuf_BUILD_EXAMPLES=OFF \
+            -Dprotobuf_BUILD_PROTOC_BINARIES=ON \
+            -Dprotobuf_BUILD_LIBPROTOC=ON \
+            -Dprotobuf_BUILD_SHARED_LIBS=OFF \
+            -Dprotobuf_INSTALL=OFF \
+            -Dprotobuf_BUILD_LIBUPB=OFF
+          cmake --build . --target protoc -- -j2
+          # protoc binary may be named protoc-<version> or just protoc
+          PROTOC_BIN=$(find . -name "protoc" -type f -executable | head -1)
+          [ -z "$PROTOC_BIN" ] && PROTOC_BIN=$(find . -name "protoc-*" -type f -executable | head -1)
+          echo "Found protoc binary: $PROTOC_BIN"
+          cp "$PROTOC_BIN" /usr/local/bin/protoc
+          chmod +x /usr/local/bin/protoc
+          /usr/local/bin/protoc --version
+
       - name: Fetch LLVM (the one giant dep not inlined in the repo)
         run: |
           chmod +x scripts/fetch-llvm.sh
