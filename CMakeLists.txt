@@ -98,6 +98,14 @@ if(TARGET rpcs3_emu AND BUILD_LLVM)
     # Demote return-type warnings from errors to warnings on ARM64 where
     # some RPCS3 code paths have missing returns that don't affect ARM64.
     target_compile_options(rpcs3_emu PRIVATE -Wno-error=return-type)
+    # Ensure LLVM-generated headers (.inc files from tablegen) exist
+    # before rpcs3_emu source files try to compile.
+    if(TARGET llvm-tblgen)
+        add_dependencies(rpcs3_emu llvm-tblgen)
+    endif()
+    if(TARGET LLVMTargetParser)
+        add_dependencies(rpcs3_emu LLVMTargetParser)
+    endif()
 endif()
 
 # -----------------------------------------------------------------------------
