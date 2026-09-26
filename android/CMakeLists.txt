@@ -121,6 +121,8 @@ target_link_libraries(pocos3-core PRIVATE
     android
     EGL
     GLESv3
+    # nlohmann/json (fetched via FetchContent in root CMakeLists.txt)
+    nlohmann_json::nlohmann_json
 )
 
 # Hide every symbol except our `_pocos3_*` entry points. Keeps the .so
