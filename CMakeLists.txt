@@ -87,6 +87,16 @@ endif()
 set(RPCS3_EMU_DIR ${RPCS3_SUBMODULE_DIR})
 add_subdirectory(${RPCS3_EMU_DIR} ${CMAKE_BINARY_DIR}/rpcs3)
 
+# Fetch nlohmann/json (single-header) — used by android/src/pocos3-core.cpp.
+include(FetchContent)
+FetchContent_Declare(
+    nlohmann_json
+    GIT_REPOSITORY https://github.com/nlohmann/json.git
+    GIT_TAG v3.11.3
+    GIT_SHALLOW TRUE
+)
+FetchContent_MakeAvailable(nlohmann_json)
+
 # After RPCS3 is configured, add LLVM include paths directly to rpcs3_emu
 # if BUILD_LLVM=ON. The 3rdparty_llvm INTERFACE target may not propagate
 # includes correctly on Android.
