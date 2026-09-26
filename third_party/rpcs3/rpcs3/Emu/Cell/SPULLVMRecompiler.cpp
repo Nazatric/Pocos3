@@ -8303,7 +8303,7 @@ public:
 	}
 
 	template <typename T, typename U, typename V = llvm_place_stealer_t<u32>, typename W = llvm_place_stealer_t<u32>>
-	static auto fm(T&& a, U&& b, V&& a_not_nan = match_stealer<u32>(), W&& b_not_nan = match_stealer<u32>())
+	static llvm_calli<f32[4], T, U, V, W> fm(T&& a, U&& b, V&& a_not_nan = match_stealer<u32>(), W&& b_not_nan = match_stealer<u32>())
 	{
 		return llvm_calli<f32[4], T, U, V, W>{"spu_fm", {std::forward<T>(a), std::forward<U>(b), a_not_nan, b_not_nan}}.set_order_equality_hint(1, 1, 2, 3);
 	}
