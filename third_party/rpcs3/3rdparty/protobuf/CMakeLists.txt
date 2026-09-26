@@ -43,9 +43,7 @@ else()
 			COMMENT "Regenerating np2_structs.pb.h/.cc using bundled protoc"
 		)
 		add_custom_target(regenerate_np2_protobuf DEPENDS "${NP_PROTOBUF_DIR}/np2_structs.pb.h.stamp")
-		# Make rpcs3_emu depend on the regenerated protobuf files
-		if(TARGET rpcs3_emu)
-			add_dependencies(rpcs3_emu regenerate_np2_protobuf)
-		endif()
+		# rpcs3_emu dependency on regenerate_np2_protobuf is wired in the root
+	# CMakeLists.txt AFTER add_subdirectory(third_party/rpcs3) creates rpcs3_emu.
 	endif()
 endif()
