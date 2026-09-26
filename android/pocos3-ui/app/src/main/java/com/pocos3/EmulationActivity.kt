@@ -14,6 +14,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.lifecycleScope
@@ -108,26 +109,24 @@ class EmulationActivity : ComponentActivity() {
             AndroidView(
                 modifier = Modifier.fillMaxSize(),
                 factory = { ctx ->
-                    object : SurfaceView(ctx) {
-                        override fun surfaceCreated(holder: SurfaceHolder) {
-                            super.surfaceCreated(holder)
-                            PocoS3Core.nativeSurfaceEvent(holder.surface, 0)
-                        }
-                        override fun surfaceChanged(
-                            holder: SurfaceHolder, format: Int, w: Int, h: Int
-                        ) {
-                            super.surfaceChanged(holder, format, w, h)
-                            PocoS3Core.nativeSurfaceEvent(holder.surface, 1)
-                            PocoS3Core.nativeSurfaceSizeChanged(w, h)
-                        }
-                        override fun surfaceDestroyed(holder: SurfaceHolder) {
-                            PocoS3Core.nativeSurfaceEvent(holder.surface, 2)
-                            super.surfaceDestroyed(holder)
-                        }
-                    }.apply {
+                    SurfaceView(ctx).apply {
+                        holder.addCallback(object : SurfaceHolder.Callback {
+                            override fun surfaceCreated(holder: SurfaceHolder) {
+                                PocoS3Core.nativeSurfaceEvent(holder.surface, 0)
+                            }
+                            override fun surfaceChanged(
+                                holder: SurfaceHolder, format: Int, w: Int, h: Int
+                            ) {
+                                PocoS3Core.nativeSurfaceEvent(holder.surface, 1)
+                                PocoS3Core.nativeSurfaceSizeChanged(w, h)
+                            }
+                            override fun surfaceDestroyed(holder: SurfaceHolder) {
+                                PocoS3Core.nativeSurfaceEvent(holder.surface, 2)
+                            }
+                        })
                         // Frame-rate hint: PS3 native frame rate (capped at 60).
                         if (android.os.Build.VERSION.SDK_INT >= 30) {
-                            holder.setFrameRate(
+                            holder.surface.setFrameRate(
                                 60f, Surface.FRAME_RATE_COMPATIBILITY_FIXED_SOURCE
                             )
                         }
@@ -146,6 +145,3 @@ class EmulationActivity : ComponentActivity() {
     }
 }
 
-// Helper for the Composable to access this Context.
-@androidx.compose.runtime.Composable
-private fun androidx.compose.runtime.remember(activity: EmulationActivity) = activity
