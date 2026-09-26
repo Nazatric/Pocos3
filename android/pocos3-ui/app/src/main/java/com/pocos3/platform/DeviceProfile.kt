@@ -4,6 +4,8 @@ import android.content.Context
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.encodeToString
+import com.pocos3.platform.profiles.PocoX7ProProfile
+import com.pocos3.platform.profiles.GenericFallbackProfile
 
 // =============================================================================
 // Device profile.
