@@ -237,6 +237,13 @@ if (NOT ANDROID)
 else()
         add_library(3rdparty_openal INTERFACE)
         target_compile_definitions(3rdparty_openal INTERFACE WITHOUT_OPENAL=1)
+        # Provide stub OpenAL headers (alc.h, al.h, alext.h) so cellMic.h's
+        # unconditional #include "alc.h" can resolve on Android. Real OpenAL
+        # function calls are guarded by #ifndef WITHOUT_OPENAL.
+        target_include_directories(3rdparty_openal SYSTEM INTERFACE
+                "${CMAKE_CURRENT_SOURCE_DIR}/OpenAL/include"
+                "${CMAKE_CURRENT_SOURCE_DIR}/OpenAL/include/AL"
+        )
 endif()
 
 # FAudio
