@@ -95,6 +95,9 @@ if(TARGET rpcs3_emu AND BUILD_LLVM)
         "${CMAKE_SOURCE_DIR}/third_party/rpcs3/3rdparty/llvm/llvm/llvm/include"
         "${CMAKE_BINARY_DIR}/rpcs3/3rdparty/llvm/llvm_build/include"
         "${CMAKE_BINARY_DIR}/rpcs3/3rdparty/llvm/llvm_build/llvm/include")
+    # Demote return-type warnings from errors to warnings on ARM64 where
+    # some RPCS3 code paths have missing returns that don't affect ARM64.
+    target_compile_options(rpcs3_emu PRIVATE -Wno-error=return-type)
 endif()
 
 # -----------------------------------------------------------------------------
