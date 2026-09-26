@@ -244,6 +244,13 @@ void np_handler::tus_get_friends_data_status(shared_ptr<tus_transaction_ctx>& tr
 void np_handler::reply_tus_get_friends_data_status(u32 req_id, rpcn::ErrorType error, vec_stream& reply) {}
 void np_handler::tus_delete_multislot_data(shared_ptr<tus_transaction_ctx>& trans_ctx, const SceNpOnlineId& targetNpId, vm::cptr<SceNpTusSlotId> slotIdArray, s32 arrayNum, bool vuser, bool async) {}
 void np_handler::reply_tus_delete_multislot_data(u32 req_id, rpcn::ErrorType error) {}
+// sceNpGetTicket / sceNpGetTicket2 call nph.get_ticket() — stubbed.
+// The actual `ticket` type is fully defined in np_handler.cpp (which IS built on Android).
+const ticket& np_handler::get_ticket() const
+{
+    static const ticket empty_ticket{};
+    return empty_ticket;
+}
 } // namespace np
 // -----------------------------------------------------------------------------
 // np_handler methods (originally defined in np_requests_gui.cpp)
@@ -274,6 +281,13 @@ void np_handler::reply_quickmatch_gui(u32 req_id, rpcn::ErrorType error, vec_str
 error_code np_handler::searchjoin_gui(u32 ctx_id, vm::cptr<SceNpCommunicationId> communicationId, vm::cptr<SceNpMatchingSearchCondition> cond, vm::cptr<SceNpMatchingAttr> attr, vm::ptr<SceNpMatchingGUIHandler> handler, vm::ptr<void> arg) { return CELL_OK; }
 void np_handler::reply_searchjoin_gui(u32 req_id, rpcn::ErrorType error, vec_stream& reply) {}
 error_code np_handler::get_room_member_list_local_gui(u32 ctx_id, vm::ptr<SceNpRoomId> room_id, vm::ptr<u32> buflen, vm::ptr<void> buf) { return CELL_OK; }
+// sceNpGetTicket / sceNpGetTicket2 call nph.get_ticket() — stubbed.
+// The actual `ticket` type is fully defined in np_handler.cpp (which IS built on Android).
+const ticket& np_handler::get_ticket() const
+{
+    static const ticket empty_ticket{};
+    return empty_ticket;
+}
 } // namespace np
 // -----------------------------------------------------------------------------
 // np_handler methods (originally defined in np_notifications.cpp)
@@ -293,4 +307,11 @@ void np_handler::notif_room_disappeared_gui(vec_stream& noti) {}
 void np_handler::notif_room_owner_changed_gui(vec_stream& noti) {}
 void np_handler::notif_user_kicked_gui(vec_stream& noti) {}
 void np_handler::notif_quickmatch_complete_gui(vec_stream& noti) {}
+// sceNpGetTicket / sceNpGetTicket2 call nph.get_ticket() — stubbed.
+// The actual `ticket` type is fully defined in np_handler.cpp (which IS built on Android).
+const ticket& np_handler::get_ticket() const
+{
+    static const ticket empty_ticket{};
+    return empty_ticket;
+}
 } // namespace np
