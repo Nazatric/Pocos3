@@ -117,13 +117,16 @@ if(TARGET rpcs3_emu AND BUILD_LLVM)
     if(ANDROID_ABI STREQUAL "arm64-v8a")
         target_compile_options(rpcs3_emu PRIVATE -march=armv8.1-a+rdm)
     endif()
-    # Regenerate np2_structs.pb.h/.cc using the bundled protoc binary
-    # before rpcs3_emu tries to compile pb_helpers.cpp. The pre-generated
-    # files in rpcs3/Emu/NP/generated were made by protobuf 6.33 but the
-    # bundled submodule is 7.37 — the API mismatch causes ClassDataLite
-    # template errors.
-    if(TARGET regenerate_np2_protobuf)
-        add_dependencies(rpcs3_emu regenerate_np2_protobuf)
+    # PocoS3 Android: protobuf is eliminated from the build entirely.
+    # The np2_structs.pb.cc file and the protobuf-using NP sources are
+    # excluded from rpcs3_emu on Android (see rpcs3/Emu/CMakeLists.txt),
+    # and empty stubs are provided in rpcs3/Emu/NP/np_android_stubs.cpp.
+    # The regenerate_np2_protobuf custom target is also wrapped in
+    # if(NOT ANDROID) in third_party/rpcs3/3rdparty/protobuf/CMakeLists.txt.
+    if(NOT ANDROID)
+        if(TARGET regenerate_np2_protobuf)
+            add_dependencies(rpcs3_emu regenerate_np2_protobuf)
+        endif()
     endif()
     # hidapi is required by Input/hid_pad_handler.h (#include <hidapi.h>).
     # Upstream links it only via the desktop-only rpcs3_lib target, so we
