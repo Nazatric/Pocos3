@@ -107,6 +107,13 @@ if(TARGET rpcs3_emu AND BUILD_LLVM)
     if(ANDROID_ABI STREQUAL "arm64-v8a")
         target_compile_options(rpcs3_emu PRIVATE -march=armv8.1-a+rdm)
     endif()
+    # hidapi is required by Input/hid_pad_handler.h (#include <hidapi.h>).
+    # Upstream links it only via the desktop-only rpcs3_lib target, so we
+    # must explicitly link 3rdparty::hidapi to rpcs3_emu on Android
+    # (otherwise we hit a link-time failure with undefined hid_* symbols).
+    if(TARGET 3rdparty::hidapi)
+        target_link_libraries(rpcs3_emu PUBLIC 3rdparty::hidapi)
+    endif()
     # Ensure LLVM-generated headers (.inc files from tablegen) exist
     # before rpcs3_emu source files try to compile.
     # With EXCLUDE_FROM_ALL on the LLVM subdirectory, only explicitly-
