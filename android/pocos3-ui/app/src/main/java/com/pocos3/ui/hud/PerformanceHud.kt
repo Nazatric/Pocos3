@@ -42,7 +42,7 @@ fun PerformanceHud(modifier: Modifier = Modifier) {
             snapshot = parseSnapshot(json)
             delay(250)
         }
-    })
+    }
 
     Canvas(modifier = modifier.fillMaxWidth().height(180.dp).padding(8.dp)) {
         // Glass background
