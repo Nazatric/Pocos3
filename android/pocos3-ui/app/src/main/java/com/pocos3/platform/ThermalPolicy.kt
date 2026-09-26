@@ -30,7 +30,7 @@ object ThermalPolicy {
         // we degrade to just observing the thermal status enum.
         executor.scheduleAtFixedRate({
             val headroom = if (android.os.Build.VERSION.SDK_INT >= 30) {
-                runCatching { pm.getThermalStatusHeadroom(30) }.getOrDefault(1f)
+                runCatching { pm.getThermalHeadroom(30) }.getOrDefault(1f)
             } else {
                 // No headroom API; use status code as a coarse hint.
                 val s = pm.currentThermalStatus
